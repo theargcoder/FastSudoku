@@ -1,0 +1,22 @@
+2025-02-28 19:19
+Lucca Labattaglia
+GITHUB: theargcoder
+
+this is NOT MY SOLUTION, mine is commented in the first commented section.
+WOW, my bruteforceish solution is SLOWW like O(9^k) slow where k is the missing squares....
+asked GPT what was his solution and its fast, like microseconds fast......
+i am offended.
+bye 
+
+2025-03-23 00:37
+Lucca Labattaglia
+GITHUB: theargcoder
+
+Well Well Well, Got back into this problem after my solution 
+excelling in problem id 51. (see it for yourself)
+and let me tell you I didn't let down at all,
+I was able to achive ~400 MICRO second times on a initialized 
+board AUTHORED BY ME AND ME MYSELF (valid one ofc)
+WILL OPTIMIZE THIS EVEN MORE SO ILL ADD MORE COMMENTS TO THIS
+EPIC
+

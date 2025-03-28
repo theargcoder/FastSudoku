@@ -1,0 +1,37 @@
+2025-02-26 11:34
+Lucca Labattaglia
+GITHUB: theargcoder
+
+check both rows and columns on the first loop, using a buffer and string.find
+of course if there are repeats we return false.
+same with the 3x3 boards but the trick is in the math to get the actual 3x3 board.
+the process is the same with a std::string buffer and string.find to validate the board
+
+2025-03-23 07:15
+Lucca Labattaglia
+GITHUB: theargcoder
+
+THIS USED TO BE:
+    Average Execution Time: 2569 ns
+    Duration in nano-seconds: 2263 ps
+    Duration in microseconds: 2 µs
+
+NOW UPDATED TO BE:
+    Average Execution Time: 64 ns
+    Duration in nano-seconds: 74 ps
+    Duration in microseconds: 0 µs
+
+AKA A LOT FASTER THANKS TO THE quest of getting the sudoku solver 
+into the microseconds range, the uncommented version is the one that has
+the perfect blend between: 
+    memory (~14 bytes) 
+    raw performance 320 ish nano-seconds
+there is a faster version which uses ~470 Bytes of memory 
+and on emptyish boards its in the 170 nano-second range
+but i think its pointless due to the memory overhead and its minimal
+benefit in full-ish boards
+
+
+
+theargcoder
+out.
