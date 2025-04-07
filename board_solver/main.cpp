@@ -4417,17 +4417,9 @@ class Solution
 
 //////////////////////////////////////////////////
 ///
-/// ATTEMPTING MVR PART 9
+/// ATTEMPTING MVR PART 9.0
 ///
-/// YESIR TARGET of 0 ms is HIT BOI
-///
-/// IDK what I'll try but I'll try something
-///
-/// PD: I rearanged the lower bound and index calculations
-/// AND OMG that made it single digit micro second solution
-///
-/// PD 2: Eliminated the excessive __builtin_popcount calls
-/// and updated MVRs directly before the backtrack is called
+/// Added pointer aithmatics but make it 2 times slower lol
 ///
 /**********************************************
  *                                            *
@@ -4443,9 +4435,316 @@ class Solution
      Average execution time per call
      ranged from:
 
-                        [8026  ns , 8546   ns]
+                        [7844  ns , 8421   ns]
 
-                        [7     μs , 8      μs]
+                        [7     μs , 7      μs]
+
+ ************************************************/
+/*
+class Solution
+{
+ private:
+   constexpr static const int8_t IDX[81]
+       = { 0,  0,  0,  0,  0,  0,  0,  0,  0,  9,  9,  9,  9,  9,  9,  9,  9,
+           9,  18, 18, 18, 18, 18, 18, 18, 18, 18, 27, 27, 27, 27, 27, 27, 27,
+           27, 27, 36, 36, 36, 36, 36, 36, 36, 36, 36, 45, 45, 45, 45, 45, 45,
+           45, 45, 45, 54, 54, 54, 54, 54, 54, 54, 54, 54, 63, 63, 63, 63, 63,
+           63, 63, 63, 63, 72, 72, 72, 72, 72, 72, 72, 72, 72 };
+
+   constexpr static const int8_t IDG[81]
+       = { 0,  0,  0,  3,  3,  3,  6,  6,  6,  0,  0,  0,  3,  3,  3,  6,  6,
+           6,  0,  0,  0,  3,  3,  3,  6,  6,  6,  27, 27, 27, 30, 30, 30, 33,
+           33, 33, 27, 27, 27, 30, 30, 30, 33, 33, 33, 27, 27, 27, 30, 30, 30,
+           33, 33, 33, 54, 54, 54, 57, 57, 57, 60, 60, 60, 54, 54, 54, 57, 57,
+           57, 60, 60, 60, 54, 54, 54, 57, 57, 57, 60, 60, 60 };
+
+   constexpr static const int8_t ROW[81]
+       = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
+           2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4,
+           4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+           7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+   constexpr static const int8_t COL[81]
+       = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2,
+           3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5,
+           6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8,
+           0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+   constexpr static const int8_t BOX[81]
+       = { 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0,
+           1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 3, 3, 3, 4, 4, 4,
+           5, 5, 5, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8,
+           6, 6, 6, 7, 7, 7, 8, 8, 8, 6, 6, 6, 7, 7, 7, 8, 8, 8 };
+
+ private: // custom data container
+   struct data
+   {
+      uint16_t stack;
+      int8_t MVR;
+      uint8_t LOC;
+      bool
+      operator< (const data &other) const
+      {
+         return MVR < other.MVR;
+      }
+   };
+
+ private: // holders
+   std::array<int8_t, 81> board;
+   std::array<data, 81> stack_data;
+   std::array<uint16_t, 9> row_m, col_m, box_m;
+
+ private: // pointers to stack_data to suffle arround and sort
+   std::array<data *, 81> stack;
+   data **stack_ptr = &stack[0];
+
+ private: // pointer to beggining of
+          // precomputed index arrays;
+   constexpr static const int8_t *IDX_p = &IDX[0];
+   constexpr static const int8_t *IDG_p = &IDG[0];
+   constexpr static const int8_t *ROW_p = &ROW[0];
+   constexpr static const int8_t *COL_p = &COL[0];
+   constexpr static const int8_t *BOX_p = &BOX[0];
+
+ private: // pointer to beggining of
+          // stack array board and rows cols box
+   int8_t *board_ptr = &board[0];
+   data *st_da_ptr = &stack_data[0];
+   uint16_t *row_m_ptr = &row_m[0];
+   uint16_t *col_m_ptr = &col_m[0];
+   uint16_t *box_m_ptr = &box_m[0];
+
+ private: // end
+   constexpr static const uint8_t end = 81;
+
+ private: // vars
+   int i, j, k, x, y;
+
+ public:
+   void
+   solveSudoku (std::vector<std::vector<char>> &sudoku)
+   {
+      long prevhash = 0, hash = 0;
+      i = 0;
+      for (y = 0; y < 9; y++)
+         {
+            *(row_m_ptr + y) = 0;
+            *(col_m_ptr + y) = 0;
+            *(box_m_ptr + y) = 0;
+            for (int x = 0; x < 9; x++)
+               {
+                  *(board_ptr + i) = sudoku[y][x] - '1';
+                  (st_da_ptr + i)->stack = 0b0000000111111111;
+                  (st_da_ptr + i)->MVR = 9;
+                  i++;
+               }
+         }
+      for (i = 0; i < 81; i++)
+         {
+            (st_da_ptr + i)->LOC = i;
+            if (*(board_ptr + i) >= 0)
+               {
+                  uint16_t SHF = 1 << *(board_ptr + i);
+                  uint16_t NSHF = ~SHF;
+                  (st_da_ptr + i)->stack = SHF;
+
+                  // TURN OFF
+                  *(row_m_ptr + *(ROW_p + i)) &= NSHF;
+                  *(col_m_ptr + *(COL_p + i)) &= NSHF;
+                  *(box_m_ptr + *(BOX_p + i)) &= NSHF;
+                  //
+
+                  (st_da_ptr + i)->MVR = 1;
+                  hash += (st_da_ptr + i)->MVR;
+
+                  update_option (i, SHF, NSHF);
+               }
+         }
+      while (prevhash != hash)
+         {
+            prevhash = hash;
+            hash = 0;
+            for (i = 0; i < 81; i++)
+               {
+                  if ((st_da_ptr + i)->MVR == 1)
+                     {
+                        *(board_ptr + i) = __builtin_ctz (stack_data[i].stack);
+
+                        uint16_t SHF = 1 << *(board_ptr + i);
+                        uint16_t NSHF = ~SHF;
+                        update_option (i, SHF, NSHF);
+
+                        (st_da_ptr + i)->stack = SHF;
+
+                        // TURN OFF
+                        *(row_m_ptr + *(ROW_p + i)) &= NSHF;
+                        *(col_m_ptr + *(COL_p + i)) &= NSHF;
+                        *(box_m_ptr + *(BOX_p + i)) &= NSHF;
+                        //
+                     }
+                  hash += (st_da_ptr + i)->MVR;
+               }
+         }
+      for (i = 0; i < 81; i++)
+         {
+            (st_da_ptr + i)->stack = (st_da_ptr + i)->stack;
+            (st_da_ptr + i)->MVR = __builtin_popcount ((st_da_ptr + i)->stack);
+            *(stack_ptr + i) = (st_da_ptr + i);
+         }
+
+      //// THIS TAKES FUCKING 8.84% of CPU TIME WTF
+      std::sort (stack_ptr, stack_ptr + 81, [] (const data *a, const data *b) {
+         return a->MVR < b->MVR;
+      });
+      ////
+
+      auto low_bd = std::lower_bound (
+          stack_ptr, stack_ptr + 81, 2,
+          [] (const data *d, const uint8_t &e) { return d->MVR < e; });
+      uint8_t st = std::distance (stack_ptr, low_bd);
+
+      if (!backtrack_MVR (st))
+         {
+            return;
+         }
+
+      i = 0;
+      for (y = 0; y < 9; y++)
+         {
+            for (x = 0; x < 9; x++)
+               {
+                  sudoku[y][x] = *(board_ptr + i) + '1';
+                  i++;
+               }
+         }
+   }
+
+ private:
+   bool
+   backtrack_MVR (uint8_t idx)
+   {
+      if (idx >= end)
+         return true;
+      uint8_t loc = (*(stack_ptr + idx))->LOC;
+
+      while ((*(stack_ptr + idx))->MVR)
+         {
+            (*(stack_ptr + idx))->MVR--;
+            int8_t s = __builtin_ctz ((*(stack_ptr + idx))->stack);
+
+            uint16_t SHF = 1 << s;
+            uint16_t NSHF = ~SHF;
+
+            (*(stack_ptr + idx))->stack &= NSHF;
+
+            if (!(*(row_m_ptr + *(ROW_p + loc)) & SHF)
+                && !(*(col_m_ptr + *(COL_p + loc)) & SHF)
+                && !(*(box_m_ptr + *(BOX_p + loc)) & SHF))
+               {
+                  *(board_ptr + loc) = s;
+                  *(row_m_ptr + *(ROW_p + loc)) |= SHF;
+                  *(col_m_ptr + *(COL_p + loc)) |= SHF;
+                  *(box_m_ptr + *(BOX_p + loc)) |= SHF;
+
+                  // UPDATE:
+                  //// according to valgrind this takes < 1% of CPU time
+                  //// therefore its not a bottleneck
+                  std::array<data, 81> stack_copy;
+                  memcpy (&stack_copy, st_da_ptr, sizeof (stack_data));
+                  //// so its actually very efficient
+
+                  /// this function still takes 20.2% of CPU time
+                  update_option (loc, SHF, NSHF);
+                  ///
+
+                  /// and this takes 32.74 % of CPU time
+
+                  std::partial_sort (stack_ptr + idx + 1, stack_ptr + idx + 2,
+                                     stack_ptr + 81,
+                                     [] (const data *a, const data *b) {
+                                        return a->MVR < b->MVR;
+                                     });
+                  ///
+
+                  if (backtrack_MVR (idx + 1))
+                     return true;
+                  *(board_ptr + loc) = -1;
+                  *(row_m_ptr + *(ROW_p + loc)) &= NSHF;
+                  *(col_m_ptr + *(COL_p + loc)) &= NSHF;
+                  *(box_m_ptr + *(BOX_p + loc)) &= NSHF;
+                  /// same as the prev memcpy
+                  memcpy (st_da_ptr, &stack_copy, sizeof (stack_data));
+                  ///
+               }
+         }
+      return false;
+   }
+
+   inline void
+   update_option (const int &i, const uint16_t &SHF, const uint16_t &NSHF)
+   {
+
+      for (j = *(IDX_p + i); j < *(IDX_p + i) + 9; j++)
+         {
+            if ((st_da_ptr + j)->stack & SHF)
+               {
+                  (st_da_ptr + j)->stack &= NSHF;
+                  (st_da_ptr + j)->MVR--;
+               }
+         }
+      for (j = i - *(IDX_p + i); j < 81; j += 9)
+         {
+            if ((st_da_ptr + j)->stack & SHF)
+               {
+                  (st_da_ptr + j)->stack &= NSHF;
+                  (st_da_ptr + j)->MVR--;
+               }
+         }
+      for (j = *(IDG_p + i); j < *(IDG_p + i) + 27; j += 9)
+         {
+            for (k = j; k < j + 3; k++)
+               {
+                  if ((st_da_ptr + k)->stack & SHF)
+                     {
+                        (st_da_ptr + k)->stack &= NSHF;
+                        (st_da_ptr + k)->MVR--;
+                     }
+               }
+         }
+   }
+};
+*/
+
+//////////////////////////////////////////////////
+///
+/// ATTEMPTING MVR PART 9
+///
+/// YESIR TARGET of 0 ms is HIT BOI
+///
+/// IDK what I'll try but I'll try something
+///
+/// PD: I rearanged the lower bound and index calculations
+/// AND OMG that made it single digit micro second solution
+///
+/// PD 2: Eliminated the excessive __builtin_popcount calls
+/// and updated MVRs directly before the backtrack is called
+///
+/// PD 3: Eliminated the references in update_option calls
+/**********************************************
+ *                                            *
+ *  TESTED IN:                                *
+ *  Linux macbook-air 6.13.7-arch1-1 #1 SMP   *
+ *  PREEMPT_DYNAMIC Thu, 13 Mar 2025          *
+ *  18:12:00 +0000 x86_64 GNU/Linux           *
+ *                                            *
+ **********************************************
+
+     Executed 5 runs of 10,000
+     function calls on the same board.
+     Average execution time per call
+     ranged from:
+
+                        [7844  ns , 8421   ns]
+
+                        [7     μs , 7      μs]
 
  ************************************************/
 
@@ -4530,13 +4829,20 @@ class Solution
             stack_data[i].LOC = i;
             if (board[i] >= 0)
                {
-                  uint16_t pp = 1 << board[i];
-                  stack_data[i].stack = pp;
-                  turn_on (i, board[i]);
+                  uint16_t SHF = 1 << board[i];
+                  uint16_t NSHF = ~SHF;
+                  stack_data[i].stack = SHF;
+
+                  // TURN OFF
+                  row_m[ROW[i]] &= NSHF;
+                  col_m[COL[i]] &= NSHF;
+                  box_m[BOX[i]] &= NSHF;
+                  //
+
                   stack_data[i].MVR = 1;
                   hash += stack_data[i].MVR;
 
-                  update_option (i, board[i]);
+                  update_option (i, SHF, NSHF);
                }
          }
       while (prevhash != hash)
@@ -4547,11 +4853,19 @@ class Solution
                {
                   if (stack_data[i].MVR == 1)
                      {
-                        int8_t p = __builtin_ctz (stack_data[i].stack);
-                        update_option (i, p);
-                        board[i] = p;
-                        stack_data[i].stack = 1 << p;
-                        turn_on (i, p);
+                        board[i] = __builtin_ctz (stack_data[i].stack);
+
+                        uint16_t SHF = 1 << board[i];
+                        uint16_t NSHF = ~SHF;
+                        update_option (i, SHF, NSHF);
+
+                        stack_data[i].stack = SHF;
+
+                        // TURN OFF
+                        row_m[ROW[i]] &= NSHF;
+                        col_m[COL[i]] &= NSHF;
+                        box_m[BOX[i]] &= NSHF;
+                        //
                      }
                   hash += stack_data[i].MVR;
                }
@@ -4602,11 +4916,19 @@ class Solution
          {
             stack[idx]->MVR--;
             int8_t s = __builtin_ctz (stack[idx]->stack);
-            stack[idx]->stack &= ~(1 << s);
-            if (validate (loc, s))
+
+            uint16_t SHF = 1 << s;
+            uint16_t NSHF = ~SHF;
+
+            stack[idx]->stack &= NSHF;
+
+            if (!(row_m[ROW[loc]] & SHF) && !(col_m[COL[loc]] & SHF)
+                && !(box_m[BOX[loc]] & SHF))
                {
                   board[loc] = s;
-                  turn_on (loc, s);
+                  row_m[ROW[loc]] |= SHF;
+                  col_m[COL[loc]] |= SHF;
+                  box_m[BOX[loc]] |= SHF;
 
                   // UPDATE:
                   //// according to valgrind this takes < 1% of CPU time
@@ -4616,7 +4938,7 @@ class Solution
                   //// so its actually very efficient
 
                   /// this function still takes 20.2% of CPU time
-                  update_option (loc, s);
+                  update_option (loc, SHF, NSHF);
                   ///
 
                   /// and this takes 32.74 % of CPU time
@@ -4629,7 +4951,9 @@ class Solution
 
                   if (backtrack_MVR (idx + 1))
                      return true;
-                  turn_off (loc, s);
+                  row_m[ROW[loc]] &= NSHF;
+                  col_m[COL[loc]] &= NSHF;
+                  box_m[BOX[loc]] &= NSHF;
                   board[loc] = -1;
                   /// same as the prev memcpy
                   memcpy (&stack_data, &stack_copy, sizeof (stack_data));
@@ -4640,67 +4964,37 @@ class Solution
    }
 
    inline void
-   update_option (const int &i, const int8_t &p)
+   update_option (const int &i, const uint16_t &SHF, const uint16_t &NSHF)
    {
       int j, k;
 
-      uint16_t mask = ~(1 << p);
-
       for (j = IDX[i]; j < IDX[i] + 9; j++)
          {
-            data &s = stack_data[j];
-            if (s.stack & ~mask)
+            if (stack_data[j].stack & SHF)
                {
-                  s.stack &= mask;
-                  s.MVR--;
+                  stack_data[j].stack &= NSHF;
+                  stack_data[j].MVR--;
                }
          }
       for (j = i - IDX[i]; j < 81; j += 9)
          {
-            data &s = stack_data[j];
-            if (s.stack & ~mask)
+            if (stack_data[j].stack & SHF)
                {
-                  s.stack &= mask;
-                  s.MVR--;
+                  stack_data[j].stack &= NSHF;
+                  stack_data[j].MVR--;
                }
          }
       for (j = IDG[i]; j < IDG[i] + 27; j += 9)
          {
             for (k = j; k < j + 3; k++)
                {
-                  data &s = stack_data[k];
-                  if (s.stack & ~mask)
+                  if (stack_data[k].stack & SHF)
                      {
-                        s.stack &= mask;
-                        s.MVR--;
+                        stack_data[k].stack &= NSHF;
+                        stack_data[k].MVR--;
                      }
                }
          }
-   }
-
-   inline void
-   turn_on (const uint8_t &p, const int8_t &s)
-   {
-      uint16_t tmp = 1 << s;
-      row_m[ROW[p]] |= tmp;
-      col_m[COL[p]] |= tmp;
-      box_m[BOX[p]] |= tmp;
-   }
-   inline void
-   turn_off (const uint8_t &p, const int8_t &s)
-   {
-      uint16_t tmp = 1 << s;
-      row_m[ROW[p]] &= ~tmp;
-      col_m[COL[p]] &= ~tmp;
-      box_m[BOX[p]] &= ~tmp;
-   }
-
-   inline bool
-   validate (const uint8_t &p, const int8_t &s)
-   {
-      uint16_t tmp = 1 << s;
-      return !(row_m[ROW[p]] & tmp) && !(col_m[COL[p]] & tmp)
-             && !(box_m[BOX[p]] & tmp);
    }
 };
 
