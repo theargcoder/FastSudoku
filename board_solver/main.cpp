@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <bits/floatn-common.h>
+#include <bitset>
 #include <cassert>
 #include <chrono>
 #include <climits>
@@ -8,6 +9,7 @@
 #include <cstring>
 #include <iostream>
 #include <iterator>
+#include <utility>
 #include <vector>
 
 // ANIMAL style brute force
@@ -2265,6 +2267,7 @@ class Solution
 
  ************************************************/
 
+/*
 class Solution
 {
  private:
@@ -2324,7 +2327,7 @@ class Solution
 
  public:
    void
-   solveSudoku (std::vector<std::vector<char> > &sudoku)
+   solveSudoku (std::vector<std::vector<char>> &sudoku)
    {
       if (!stack_ptrs.empty ())
          stack_ptrs.clear ();
@@ -2564,6 +2567,7 @@ class Solution
          }
    }
 };
+*/
 
 //////////////////////////////////////////////////
 ///
@@ -2756,22 +2760,6 @@ class Solution
    }
 
  private:
-   template <typename It>
-   void
-   insertionSort (It begin, It end)
-   {
-      for (It i = begin + 1; i < end; ++i)
-         {
-            data key = *i;
-            It j = i - 1;
-            while (j >= begin && key < *j)
-               {
-                  *(j + 1) = *j;
-                  --j;
-               }
-            *(j + 1) = key;
-         }
-   }
    bool
    backtrack_MVR (uint8_t idx)
    {
@@ -3175,6 +3163,1547 @@ class Solution
 };
 */
 
+//////////////////////////////////////////////////
+///
+/// ATTEMPTING MVR PART 6
+/// Reduced memory usage by elimination option
+/// TARGET IS STILL 0 MS
+///
+/**********************************************
+ *                                            *
+ *  TESTED IN:                                *
+ *  Linux macbook-air 6.13.7-arch1-1 #1 SMP   *
+ *  PREEMPT_DYNAMIC Thu, 13 Mar 2025          *
+ *  18:12:00 +0000 x86_64 GNU/Linux           *
+ *                                            *
+ **********************************************
+
+     Executed 5 runs of 10,000
+     function calls on the same board.
+     Average execution time per call
+     ranged from:
+
+                        [44821  ns , 45574  ns]
+
+                        [44     μs , 45     μs]
+
+ ************************************************/
+
+/*
+class Solution
+{
+ private:
+   constexpr static const int8_t IDX[81]
+       = { 0,  0,  0,  0,  0,  0,  0,  0,  0,  9,  9,  9,  9,  9,  9,  9,  9,
+           9,  18, 18, 18, 18, 18, 18, 18, 18, 18, 27, 27, 27, 27, 27, 27, 27,
+           27, 27, 36, 36, 36, 36, 36, 36, 36, 36, 36, 45, 45, 45, 45, 45, 45,
+           45, 45, 45, 54, 54, 54, 54, 54, 54, 54, 54, 54, 63, 63, 63, 63, 63,
+           63, 63, 63, 63, 72, 72, 72, 72, 72, 72, 72, 72, 72 };
+
+   constexpr static const int8_t IDG[81]
+       = { 0,  0,  0,  3,  3,  3,  6,  6,  6,  0,  0,  0,  3,  3,  3,  6,  6,
+           6,  0,  0,  0,  3,  3,  3,  6,  6,  6,  27, 27, 27, 30, 30, 30, 33,
+           33, 33, 27, 27, 27, 30, 30, 30, 33, 33, 33, 27, 27, 27, 30, 30, 30,
+           33, 33, 33, 54, 54, 54, 57, 57, 57, 60, 60, 60, 54, 54, 54, 57, 57,
+           57, 60, 60, 60, 54, 54, 54, 57, 57, 57, 60, 60, 60 };
+
+   constexpr static const int8_t ROW[81]
+       = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
+           2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4,
+           4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+           7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+   constexpr static const int8_t COL[81]
+       = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2,
+           3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5,
+           6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8,
+           0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+   constexpr static const int8_t BOX[81]
+       = { 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0,
+           1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 3, 3, 3, 4, 4, 4,
+           5, 5, 5, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8,
+           6, 6, 6, 7, 7, 7, 8, 8, 8, 6, 6, 6, 7, 7, 7, 8, 8, 8 };
+
+ private: // custom data container
+   struct data
+   {
+      uint16_t stack;
+      int8_t MVR;
+      uint8_t LOC;
+      bool
+      operator< (const data &other) const
+      {
+         return MVR < other.MVR;
+      }
+   };
+
+ private: // holders
+   std::array<int8_t, 81> board;
+   std::array<data, 81> stack;
+   std::array<uint16_t, 9> row_m, col_m, box_m;
+
+ private: // end
+   uint8_t end;
+
+ public:
+   void
+   solveSudoku (std::vector<std::vector<char>> &sudoku)
+   {
+      long prevhash = 0, hash = 0;
+      int i = 0;
+      for (int y = 0; y < 9; y++)
+         {
+            row_m[y] = 0;
+            col_m[y] = 0;
+            box_m[y] = 0;
+            for (int x = 0; x < 9; x++)
+               {
+                  board[i] = sudoku[y][x] - '1';
+                  stack[i].stack = 0b0000000111111111;
+                  i++;
+               }
+         }
+      for (i = 0; i < 81; i++)
+         {
+            if (board[i] >= 0)
+               {
+                  stack[i].stack &= (1 << board[i]);
+                  turn_on (i, board[i]);
+                  stack[i].LOC = i;
+                  stack[i].MVR = __builtin_popcount (stack[i].stack);
+                  hash += stack[i].MVR;
+               }
+            else
+               {
+                  for (int x = IDX[i]; x < IDX[i] + 9; x++)
+                     {
+                        if (x != i && board[x] >= 0)
+                           {
+                              stack[i].stack &= ~(1 << board[x]);
+                           }
+                     }
+                  for (int y = i - IDX[i]; y < 81; y += 9)
+                     {
+                        if (y != i && board[y] >= 0)
+                           {
+                              stack[i].stack &= ~(1 << board[y]);
+                           }
+                     }
+                  for (int y = IDG[i]; y < IDG[i] + 27; y += 9)
+                     {
+                        for (int x = y; x < y + 3; x++)
+                           {
+                              if (x != i && board[x] >= 0)
+                                 {
+                                    stack[i].stack &= ~(1 << board[x]);
+                                 }
+                           }
+                     }
+                  stack[i].LOC = i;
+                  hash += stack[i].MVR;
+               }
+         }
+      while (prevhash != hash)
+         {
+            prevhash = hash;
+            hash = 0;
+            for (i = 0; i < 81; i++)
+               {
+                  int count = __builtin_popcount (stack[i].stack);
+                  if (count == 1)
+                     {
+                        int8_t p = __builtin_ctz (stack[i].stack);
+                        update_option (i, p);
+                        board[i] = p;
+                        stack[i].stack = 1 << p;
+                        turn_on (i, p);
+                     }
+                  hash += count;
+               }
+         }
+      for (i = 0; i < 81; i++)
+         {
+            stack[i].stack = stack[i].stack;
+            stack[i].MVR = __builtin_popcount (stack[i].stack);
+            if (stack[i].MVR == 1)
+               stack[i].MVR = 127;
+         }
+
+      std::sort (stack.begin (), stack.end ());
+      auto low_bd
+          = std::lower_bound (stack.begin (), stack.end (), 127,
+                              [] (const data &d, int e) { return d.MVR < e; });
+      end = std::distance (stack.begin (), low_bd);
+
+      if (!backtrack_MVR (0))
+         {
+            return;
+         }
+
+      i = 0;
+      for (int y = 0; y < 9; y++)
+         {
+            for (int x = 0; x < 9; x++)
+               {
+                  sudoku[y][x] = board[i] + '1';
+                  i++;
+               }
+         }
+   }
+
+ private:
+   bool
+   backtrack_MVR (uint8_t idx)
+   {
+      if (idx >= end)
+         return true;
+      uint8_t loc = stack[idx].LOC;
+
+      while (stack[idx].MVR)
+         {
+            stack[idx].MVR--;
+            int8_t s = __builtin_ctz (stack[idx].stack);
+            stack[idx].stack &= ~(1 << s);
+            if (validate (loc, s))
+               {
+                  board[loc] = s;
+                  turn_on (loc, s);
+
+                  // bottleneck
+                  std::array<data, 81> stack_copy;
+                  memcpy (&stack_copy, &stack, sizeof (stack));
+                  // bottleneck
+
+                  update_stack (idx, s, end);
+                  std::sort (stack.begin () + idx + 1, stack.begin () + end);
+                  if (backtrack_MVR (idx + 1))
+                     return true;
+                  turn_off (loc, s);
+                  board[loc] = -1;
+                  memcpy (&stack, &stack_copy, sizeof (stack));
+               }
+         }
+      return false;
+   }
+   inline void
+   update_option (const int &i, int8_t &p)
+   {
+      for (int j = IDX[i]; j < IDX[i] + 9; j++)
+         {
+            stack[j].stack &= ~(1 << p);
+         }
+      for (int j = i - IDX[i]; j < 81; j += 9)
+         {
+            stack[j].stack &= ~(1 << p);
+         }
+      for (int j = IDG[i]; j < IDG[i] + 27; j += 9)
+         {
+            for (int k = j; k < j + 3; k++)
+               {
+                  stack[k].stack &= ~(1 << p);
+               }
+         }
+   }
+
+   inline void
+   turn_on (const uint8_t &p, const int8_t &s)
+   {
+      uint16_t tmp = 1 << s;
+      row_m[ROW[p]] |= tmp;
+      col_m[COL[p]] |= tmp;
+      box_m[BOX[p]] |= tmp;
+   }
+   inline void
+   turn_off (const uint8_t &p, const int8_t &s)
+   {
+      uint16_t tmp = 1 << s;
+      row_m[ROW[p]] &= ~tmp;
+      col_m[COL[p]] &= ~tmp;
+      box_m[BOX[p]] &= ~tmp;
+   }
+
+   inline bool
+   validate (const uint8_t &p, const int8_t &s)
+   {
+      uint16_t tmp = 1 << s;
+      return !(row_m[ROW[p]] & tmp) && !(col_m[COL[p]] & tmp)
+             && !(box_m[BOX[p]] & tmp);
+   }
+
+   inline void
+   update_stack (const uint8_t &i, const int8_t &p, const uint8_t &end)
+   {
+      uint8_t loc = stack[i].LOC;
+      const uint8_t r = ROW[loc];
+      const uint8_t c = COL[loc];
+      const uint8_t b = BOX[loc];
+      uint16_t mask = ~(1 << p);
+      for (uint8_t idx = 0; idx < end; idx++)
+         {
+            uint8_t curr_loc = stack[idx].LOC;
+            if (ROW[curr_loc] == r || COL[curr_loc] == c || BOX[curr_loc] == b)
+               {
+                  uint16_t &s = stack[idx].stack;
+                  if (s & ~mask)
+                     {
+                        s &= mask;
+                        stack[idx].MVR--;
+                     }
+               }
+         }
+   }
+};
+*/
+
+//////////////////////////////////////////////////
+///
+/// ATTEMPTING MVR PART 7
+/// Reduced memory usage by elimination option
+/// Also insertion sort makes it MUCH faster some times
+/// and much slower some times LOL
+/// TARGET IS STILL 0 MS
+///
+/**********************************************
+ *                                            *
+ *  TESTED IN:                                *
+ *  Linux macbook-air 6.13.7-arch1-1 #1 SMP   *
+ *  PREEMPT_DYNAMIC Thu, 13 Mar 2025          *
+ *  18:12:00 +0000 x86_64 GNU/Linux           *
+ *                                            *
+ **********************************************
+
+     Executed 5 runs of 10,000
+     function calls on the same board.
+     Average execution time per call
+     ranged from:
+
+                        [35902  ns , 37036  ns]
+
+                        [35     μs , 36     μs]
+
+ ************************************************/
+
+/*
+class Solution
+{
+ private:
+   constexpr static const int8_t IDX[81]
+       = { 0,  0,  0,  0,  0,  0,  0,  0,  0,  9,  9,  9,  9,  9,  9,  9,  9,
+           9,  18, 18, 18, 18, 18, 18, 18, 18, 18, 27, 27, 27, 27, 27, 27, 27,
+           27, 27, 36, 36, 36, 36, 36, 36, 36, 36, 36, 45, 45, 45, 45, 45, 45,
+           45, 45, 45, 54, 54, 54, 54, 54, 54, 54, 54, 54, 63, 63, 63, 63, 63,
+           63, 63, 63, 63, 72, 72, 72, 72, 72, 72, 72, 72, 72 };
+
+   constexpr static const int8_t IDG[81]
+       = { 0,  0,  0,  3,  3,  3,  6,  6,  6,  0,  0,  0,  3,  3,  3,  6,  6,
+           6,  0,  0,  0,  3,  3,  3,  6,  6,  6,  27, 27, 27, 30, 30, 30, 33,
+           33, 33, 27, 27, 27, 30, 30, 30, 33, 33, 33, 27, 27, 27, 30, 30, 30,
+           33, 33, 33, 54, 54, 54, 57, 57, 57, 60, 60, 60, 54, 54, 54, 57, 57,
+           57, 60, 60, 60, 54, 54, 54, 57, 57, 57, 60, 60, 60 };
+
+   constexpr static const int8_t ROW[81]
+       = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
+           2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4,
+           4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+           7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+   constexpr static const int8_t COL[81]
+       = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2,
+           3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5,
+           6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8,
+           0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+   constexpr static const int8_t BOX[81]
+       = { 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0,
+           1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 3, 3, 3, 4, 4, 4,
+           5, 5, 5, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8,
+           6, 6, 6, 7, 7, 7, 8, 8, 8, 6, 6, 6, 7, 7, 7, 8, 8, 8 };
+
+ private: // custom data container
+   struct data
+   {
+      uint16_t stack;
+      int8_t MVR;
+      uint8_t LOC;
+      bool
+      operator< (const data &other) const
+      {
+         return MVR < other.MVR;
+      }
+   };
+
+ private: // holders
+   std::array<int8_t, 81> board;
+   std::array<data, 81> stack;
+   std::array<uint16_t, 9> row_m, col_m, box_m;
+
+ private: // end
+   uint8_t end;
+
+ public:
+   void
+   solveSudoku (std::vector<std::vector<char>> &sudoku)
+   {
+      long prevhash = 0, hash = 0;
+      int i = 0;
+      for (int y = 0; y < 9; y++)
+         {
+            row_m[y] = 0;
+            col_m[y] = 0;
+            box_m[y] = 0;
+            for (int x = 0; x < 9; x++)
+               {
+                  board[i] = sudoku[y][x] - '1';
+                  stack[i].stack = 0b0000000111111111;
+                  i++;
+               }
+         }
+      for (i = 0; i < 81; i++)
+         {
+            if (board[i] >= 0)
+               {
+                  stack[i].stack &= (1 << board[i]);
+                  turn_on (i, board[i]);
+                  stack[i].LOC = i;
+                  stack[i].MVR = __builtin_popcount (stack[i].stack);
+                  hash += stack[i].MVR;
+               }
+            else
+               {
+                  for (int x = IDX[i]; x < IDX[i] + 9; x++)
+                     {
+                        if (x != i && board[x] >= 0)
+                           {
+                              stack[i].stack &= ~(1 << board[x]);
+                           }
+                     }
+                  for (int y = i - IDX[i]; y < 81; y += 9)
+                     {
+                        if (y != i && board[y] >= 0)
+                           {
+                              stack[i].stack &= ~(1 << board[y]);
+                           }
+                     }
+                  for (int y = IDG[i]; y < IDG[i] + 27; y += 9)
+                     {
+                        for (int x = y; x < y + 3; x++)
+                           {
+                              if (x != i && board[x] >= 0)
+                                 {
+                                    stack[i].stack &= ~(1 << board[x]);
+                                 }
+                           }
+                     }
+                  stack[i].LOC = i;
+                  hash += stack[i].MVR;
+               }
+         }
+      while (prevhash != hash)
+         {
+            prevhash = hash;
+            hash = 0;
+            for (i = 0; i < 81; i++)
+               {
+                  int count = __builtin_popcount (stack[i].stack);
+                  if (count == 1)
+                     {
+                        int8_t p = __builtin_ctz (stack[i].stack);
+                        update_option (i, p);
+                        board[i] = p;
+                        stack[i].stack = 1 << p;
+                        turn_on (i, p);
+                     }
+                  hash += count;
+               }
+         }
+      for (i = 0; i < 81; i++)
+         {
+            stack[i].stack = stack[i].stack;
+            stack[i].MVR = __builtin_popcount (stack[i].stack);
+            if (stack[i].MVR == 1)
+               stack[i].MVR = 127;
+         }
+
+      std::sort (stack.begin (), stack.end ());
+      auto low_bd
+          = std::lower_bound (stack.begin (), stack.end (), 127,
+                              [] (const data &d, int e) { return d.MVR < e; });
+      end = std::distance (stack.begin (), low_bd);
+
+      if (!backtrack_MVR (0))
+         {
+            return;
+         }
+
+      i = 0;
+      for (int y = 0; y < 9; y++)
+         {
+            for (int x = 0; x < 9; x++)
+               {
+                  sudoku[y][x] = board[i] + '1';
+                  i++;
+               }
+         }
+   }
+
+ private:
+   void
+   insertion_sort (data *begin, data *end)
+   {
+      for (data *i = begin + 1; i < end; ++i)
+         {
+            data key = *i;
+            data *j = i;
+            while (j > begin && key < *(j - 1))
+               {
+                  *j = *(j - 1);
+                  --j;
+               }
+            *j = key;
+         }
+   }
+   bool
+   backtrack_MVR (uint8_t idx)
+   {
+      if (idx >= end)
+         return true;
+      uint8_t loc = stack[idx].LOC;
+
+      while (stack[idx].MVR)
+         {
+            stack[idx].MVR--;
+            int8_t s = __builtin_ctz (stack[idx].stack);
+            stack[idx].stack &= ~(1 << s);
+            if (validate (loc, s))
+               {
+                  board[loc] = s;
+                  turn_on (loc, s);
+
+                  // bottleneck
+                  std::array<data, 81> stack_copy;
+                  memcpy (&stack_copy, &stack, sizeof (stack));
+                  // bottleneck
+
+                  update_stack (idx, s, end);
+                  insertion_sort (stack.begin () + idx + 1,
+                                  stack.begin () + end);
+                  if (backtrack_MVR (idx + 1))
+                     return true;
+                  turn_off (loc, s);
+                  board[loc] = -1;
+                  memcpy (&stack, &stack_copy, sizeof (stack));
+               }
+         }
+      return false;
+   }
+   inline void
+   update_option (const int &i, int8_t &p)
+   {
+      for (int j = IDX[i]; j < IDX[i] + 9; j++)
+         {
+            stack[j].stack &= ~(1 << p);
+         }
+      for (int j = i - IDX[i]; j < 81; j += 9)
+         {
+            stack[j].stack &= ~(1 << p);
+         }
+      for (int j = IDG[i]; j < IDG[i] + 27; j += 9)
+         {
+            for (int k = j; k < j + 3; k++)
+               {
+                  stack[k].stack &= ~(1 << p);
+               }
+         }
+   }
+
+   inline void
+   turn_on (const uint8_t &p, const int8_t &s)
+   {
+      uint16_t tmp = 1 << s;
+      row_m[ROW[p]] |= tmp;
+      col_m[COL[p]] |= tmp;
+      box_m[BOX[p]] |= tmp;
+   }
+   inline void
+   turn_off (const uint8_t &p, const int8_t &s)
+   {
+      uint16_t tmp = 1 << s;
+      row_m[ROW[p]] &= ~tmp;
+      col_m[COL[p]] &= ~tmp;
+      box_m[BOX[p]] &= ~tmp;
+   }
+
+   inline bool
+   validate (const uint8_t &p, const int8_t &s)
+   {
+      uint16_t tmp = 1 << s;
+      return !(row_m[ROW[p]] & tmp) && !(col_m[COL[p]] & tmp)
+             && !(box_m[BOX[p]] & tmp);
+   }
+
+   inline void
+   update_stack (const uint8_t &i, const int8_t &p, const uint8_t &end)
+   {
+      uint8_t loc = stack[i].LOC;
+      const uint8_t r = ROW[loc];
+      const uint8_t c = COL[loc];
+      const uint8_t b = BOX[loc];
+      uint16_t mask = ~(1 << p);
+      for (uint8_t idx = 0; idx < end; idx++)
+         {
+            uint8_t curr_loc = stack[idx].LOC;
+            if (ROW[curr_loc] == r || COL[curr_loc] == c || BOX[curr_loc] == b)
+               {
+                  uint16_t &s = stack[idx].stack;
+                  if (s & ~mask)
+                     {
+                        s &= mask;
+                        stack[idx].MVR--;
+                     }
+               }
+         }
+   }
+};
+*/
+
+//////////////////////////////////////////////////
+///
+/// ATTEMPTING MVR PART 8
+/// Maybe if we sort pointers instead of stack we can do update_stack
+/// take less CPU time (currently is taking 45 PERCENT of time)
+///
+/// PD: it reduced it to 23 PERCENT
+/// TARGET IS STILL 0 MS
+///
+/**********************************************
+ *                                            *
+ *  TESTED IN:                                *
+ *  Linux macbook-air 6.13.7-arch1-1 #1 SMP   *
+ *  PREEMPT_DYNAMIC Thu, 13 Mar 2025          *
+ *  18:12:00 +0000 x86_64 GNU/Linux           *
+ *                                            *
+ **********************************************
+
+     Executed 5 runs of 10,000
+     function calls on the same board.
+     Average execution time per call
+     ranged from:
+
+                        [18895  ns , 19951  ns]
+
+                        [18     μs , 19     μs]
+
+ ************************************************/
+
+/*
+class Solution
+{
+ private:
+   constexpr static const int8_t IDX[81]
+       = { 0,  0,  0,  0,  0,  0,  0,  0,  0,  9,  9,  9,  9,  9,  9,  9,  9,
+           9,  18, 18, 18, 18, 18, 18, 18, 18, 18, 27, 27, 27, 27, 27, 27, 27,
+           27, 27, 36, 36, 36, 36, 36, 36, 36, 36, 36, 45, 45, 45, 45, 45, 45,
+           45, 45, 45, 54, 54, 54, 54, 54, 54, 54, 54, 54, 63, 63, 63, 63, 63,
+           63, 63, 63, 63, 72, 72, 72, 72, 72, 72, 72, 72, 72 };
+
+   constexpr static const int8_t IDG[81]
+       = { 0,  0,  0,  3,  3,  3,  6,  6,  6,  0,  0,  0,  3,  3,  3,  6,  6,
+           6,  0,  0,  0,  3,  3,  3,  6,  6,  6,  27, 27, 27, 30, 30, 30, 33,
+           33, 33, 27, 27, 27, 30, 30, 30, 33, 33, 33, 27, 27, 27, 30, 30, 30,
+           33, 33, 33, 54, 54, 54, 57, 57, 57, 60, 60, 60, 54, 54, 54, 57, 57,
+           57, 60, 60, 60, 54, 54, 54, 57, 57, 57, 60, 60, 60 };
+
+   constexpr static const int8_t ROW[81]
+       = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
+           2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4,
+           4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+           7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+   constexpr static const int8_t COL[81]
+       = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2,
+           3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5,
+           6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8,
+           0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+   constexpr static const int8_t BOX[81]
+       = { 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0,
+           1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 3, 3, 3, 4, 4, 4,
+           5, 5, 5, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8,
+           6, 6, 6, 7, 7, 7, 8, 8, 8, 6, 6, 6, 7, 7, 7, 8, 8, 8 };
+
+ private: // custom data container
+   struct data
+   {
+      uint16_t stack;
+      int8_t MVR;
+      uint8_t LOC;
+      bool
+      operator< (const data &other) const
+      {
+         return MVR < other.MVR;
+      }
+   };
+
+ private: // holders
+   std::array<int8_t, 81> board;
+   std::array<data, 81> stack_data;
+   std::array<uint16_t, 9> row_m, col_m, box_m;
+
+ private: // pointers to stack_data to suffle arround and sort
+   std::array<data *, 81> stack;
+
+ private: // end
+   uint8_t end;
+
+ public:
+   void
+   solveSudoku (std::vector<std::vector<char>> &sudoku)
+   {
+      long prevhash = 0, hash = 0;
+      int i = 0;
+      for (int y = 0; y < 9; y++)
+         {
+            row_m[y] = 0;
+            col_m[y] = 0;
+            box_m[y] = 0;
+            for (int x = 0; x < 9; x++)
+               {
+                  board[i] = sudoku[y][x] - '1';
+                  stack_data[i].stack = 0b0000000111111111;
+                  i++;
+               }
+         }
+      for (i = 0; i < 81; i++)
+         {
+            if (board[i] >= 0)
+               {
+                  stack_data[i].stack &= (1 << board[i]);
+                  turn_on (i, board[i]);
+                  stack_data[i].LOC = i;
+                  stack_data[i].MVR = __builtin_popcount (stack_data[i].stack);
+                  hash += stack_data[i].MVR;
+               }
+            else
+               {
+                  for (int x = IDX[i]; x < IDX[i] + 9; x++)
+                     {
+                        if (x != i && board[x] >= 0)
+                           {
+                              stack_data[i].stack &= ~(1 << board[x]);
+                           }
+                     }
+                  for (int y = i - IDX[i]; y < 81; y += 9)
+                     {
+                        if (y != i && board[y] >= 0)
+                           {
+                              stack_data[i].stack &= ~(1 << board[y]);
+                           }
+                     }
+                  for (int y = IDG[i]; y < IDG[i] + 27; y += 9)
+                     {
+                        for (int x = y; x < y + 3; x++)
+                           {
+                              if (x != i && board[x] >= 0)
+                                 {
+                                    stack_data[i].stack &= ~(1 << board[x]);
+                                 }
+                           }
+                     }
+                  stack_data[i].LOC = i;
+                  hash += stack_data[i].MVR;
+               }
+         }
+      while (prevhash != hash)
+         {
+            prevhash = hash;
+            hash = 0;
+            for (i = 0; i < 81; i++)
+               {
+                  int count = __builtin_popcount (stack_data[i].stack);
+                  if (count == 1)
+                     {
+                        int8_t p = __builtin_ctz (stack_data[i].stack);
+                        update_option (i, p);
+                        board[i] = p;
+                        stack_data[i].stack = 1 << p;
+                        turn_on (i, p);
+                     }
+                  hash += count;
+               }
+         }
+      for (i = 0; i < 81; i++)
+         {
+            stack_data[i].stack = stack_data[i].stack;
+            stack_data[i].MVR = __builtin_popcount (stack_data[i].stack);
+            if (stack_data[i].MVR == 1)
+               stack_data[i].MVR = 127;
+            stack[i] = &stack_data[i];
+         }
+
+      std::sort (
+          stack.begin (), stack.end (),
+          [] (const data *a, const data *b) { return a->MVR < b->MVR; });
+      auto low_bd = std::lower_bound (
+          stack.begin (), stack.end (), 127,
+          [] (const data *d, int e) { return d->MVR < e; });
+      end = std::distance (stack.begin (), low_bd);
+
+      if (!backtrack_MVR (0))
+         {
+            return;
+         }
+
+      i = 0;
+      for (int y = 0; y < 9; y++)
+         {
+            for (int x = 0; x < 9; x++)
+               {
+                  sudoku[y][x] = board[i] + '1';
+                  i++;
+               }
+         }
+   }
+
+ private:
+   void
+   insertion_sort (data **begin, data **end)
+   {
+      for (data **i = begin + 1; i < end; ++i)
+         {
+            data *key = *i;
+            data **j = i;
+            while (j > begin && *key < *(*(j - 1)))
+               {
+                  *j = *(j - 1);
+                  --j;
+               }
+            *j = key;
+         }
+   }
+   bool
+   backtrack_MVR (uint8_t idx)
+   {
+      if (idx >= end)
+         return true;
+      uint8_t loc = stack[idx]->LOC;
+
+      while (stack[idx]->MVR)
+         {
+            stack[idx]->MVR--;
+            int8_t s = __builtin_ctz (stack[idx]->stack);
+            stack[idx]->stack &= ~(1 << s);
+            if (validate (loc, s))
+               {
+                  board[loc] = s;
+                  turn_on (loc, s);
+
+                  // bottleneck
+                  std::array<data, 81> stack_copy;
+                  memcpy (&stack_copy, &stack_data, sizeof (stack_data));
+                  // bottleneck
+
+                  update_stack (loc, s, end);
+                  insertion_sort (stack.begin () + idx + 1,
+                                  stack.begin () + end);
+                  if (backtrack_MVR (idx + 1))
+                     return true;
+                  turn_off (loc, s);
+                  board[loc] = -1;
+                  memcpy (&stack_data, &stack_copy, sizeof (stack_data));
+               }
+         }
+      return false;
+   }
+   inline void
+   update_option (const int &i, int8_t &p)
+   {
+      for (int j = IDX[i]; j < IDX[i] + 9; j++)
+         {
+            stack_data[j].stack &= ~(1 << p);
+         }
+      for (int j = i - IDX[i]; j < 81; j += 9)
+         {
+            stack_data[j].stack &= ~(1 << p);
+         }
+      for (int j = IDG[i]; j < IDG[i] + 27; j += 9)
+         {
+            for (int k = j; k < j + 3; k++)
+               {
+                  stack_data[k].stack &= ~(1 << p);
+               }
+         }
+   }
+
+   inline void
+   turn_on (const uint8_t &p, const int8_t &s)
+   {
+      uint16_t tmp = 1 << s;
+      row_m[ROW[p]] |= tmp;
+      col_m[COL[p]] |= tmp;
+      box_m[BOX[p]] |= tmp;
+   }
+   inline void
+   turn_off (const uint8_t &p, const int8_t &s)
+   {
+      uint16_t tmp = 1 << s;
+      row_m[ROW[p]] &= ~tmp;
+      col_m[COL[p]] &= ~tmp;
+      box_m[BOX[p]] &= ~tmp;
+   }
+
+   inline bool
+   validate (const uint8_t &p, const int8_t &s)
+   {
+      uint16_t tmp = 1 << s;
+      return !(row_m[ROW[p]] & tmp) && !(col_m[COL[p]] & tmp)
+             && !(box_m[BOX[p]] & tmp);
+   }
+
+   inline void
+   update_stack (const uint8_t &i, const int8_t &p, const uint8_t &end)
+   {
+      int j, k;
+
+      uint16_t mask = ~(1 << p);
+
+      for (j = IDX[i]; j < IDX[i] + 9; j++)
+         {
+            data &s = stack_data[j];
+            if (s.stack & ~mask)
+               {
+                  s.stack &= mask;
+                  s.MVR--;
+               }
+         }
+      for (j = i - IDX[i]; j < 81; j += 9)
+         {
+            data &s = stack_data[j];
+            if (s.stack & ~mask)
+               {
+                  s.stack &= mask;
+                  s.MVR--;
+               }
+         }
+      for (j = IDG[i]; j < IDG[i] + 27; j += 9)
+         {
+            for (k = j; k < j + 3; k++)
+               {
+                  data &s = stack_data[k];
+                  if (s.stack & ~mask)
+                     {
+                        s.stack &= mask;
+                        s.MVR--;
+                     }
+               }
+         }
+   }
+};
+*/
+
+//////////////////////////////////////////////////
+///
+/// ATTEMPTING MVR PART 8
+///
+/// WHY WOULD WE SORT THE FULL SHIT IF WE ONLY NEED THE MIN
+/// this reduced the time on emptish boards by half
+///
+/// YESIR TARGET of 0 ms is HIT BOI
+///
+/**********************************************
+ *                                            *
+ *  TESTED IN:                                *
+ *  Linux macbook-air 6.13.7-arch1-1 #1 SMP   *
+ *  PREEMPT_DYNAMIC Thu, 13 Mar 2025          *
+ *  18:12:00 +0000 x86_64 GNU/Linux           *
+ *                                            *
+ **********************************************
+
+     Executed 5 runs of 10,000
+     function calls on the same board.
+     Average execution time per call
+     ranged from:
+
+                        [15424  ns , 17635  ns]
+
+                        [14     μs , 17     μs]
+
+ ************************************************/
+
+/*
+class Solution
+{
+ private:
+   constexpr static const int8_t IDX[81]
+       = { 0,  0,  0,  0,  0,  0,  0,  0,  0,  9,  9,  9,  9,  9,  9,  9,  9,
+           9,  18, 18, 18, 18, 18, 18, 18, 18, 18, 27, 27, 27, 27, 27, 27, 27,
+           27, 27, 36, 36, 36, 36, 36, 36, 36, 36, 36, 45, 45, 45, 45, 45, 45,
+           45, 45, 45, 54, 54, 54, 54, 54, 54, 54, 54, 54, 63, 63, 63, 63, 63,
+           63, 63, 63, 63, 72, 72, 72, 72, 72, 72, 72, 72, 72 };
+
+   constexpr static const int8_t IDG[81]
+       = { 0,  0,  0,  3,  3,  3,  6,  6,  6,  0,  0,  0,  3,  3,  3,  6,  6,
+           6,  0,  0,  0,  3,  3,  3,  6,  6,  6,  27, 27, 27, 30, 30, 30, 33,
+           33, 33, 27, 27, 27, 30, 30, 30, 33, 33, 33, 27, 27, 27, 30, 30, 30,
+           33, 33, 33, 54, 54, 54, 57, 57, 57, 60, 60, 60, 54, 54, 54, 57, 57,
+           57, 60, 60, 60, 54, 54, 54, 57, 57, 57, 60, 60, 60 };
+
+   constexpr static const int8_t ROW[81]
+       = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
+           2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4,
+           4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+           7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+   constexpr static const int8_t COL[81]
+       = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2,
+           3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5,
+           6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8,
+           0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+   constexpr static const int8_t BOX[81]
+       = { 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0,
+           1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 3, 3, 3, 4, 4, 4,
+           5, 5, 5, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8,
+           6, 6, 6, 7, 7, 7, 8, 8, 8, 6, 6, 6, 7, 7, 7, 8, 8, 8 };
+
+ private: // custom data container
+   struct data
+   {
+      uint16_t stack;
+      int8_t MVR;
+      uint8_t LOC;
+      bool
+      operator< (const data &other) const
+      {
+         return MVR < other.MVR;
+      }
+   };
+
+ private: // holders
+   std::array<int8_t, 81> board;
+   std::array<data, 81> stack_data;
+   std::array<uint16_t, 9> row_m, col_m, box_m;
+
+ private: // pointers to stack_data to suffle arround and sort
+   std::array<data *, 81> stack;
+
+ private: // end
+   uint8_t end;
+
+ public:
+   void
+   solveSudoku (std::vector<std::vector<char>> &sudoku)
+   {
+      long prevhash = 0, hash = 0;
+      int i = 0;
+      for (int y = 0; y < 9; y++)
+         {
+            row_m[y] = 0;
+            col_m[y] = 0;
+            box_m[y] = 0;
+            for (int x = 0; x < 9; x++)
+               {
+                  board[i] = sudoku[y][x] - '1';
+                  stack_data[i].stack = 0b0000000111111111;
+                  i++;
+               }
+         }
+      for (i = 0; i < 81; i++)
+         {
+            if (board[i] >= 0)
+               {
+                  stack_data[i].stack &= (1 << board[i]);
+                  turn_on (i, board[i]);
+                  stack_data[i].LOC = i;
+                  stack_data[i].MVR = __builtin_popcount (stack_data[i].stack);
+                  hash += stack_data[i].MVR;
+               }
+            else
+               {
+                  for (int x = IDX[i]; x < IDX[i] + 9; x++)
+                     {
+                        if (x != i && board[x] >= 0)
+                           {
+                              stack_data[i].stack &= ~(1 << board[x]);
+                           }
+                     }
+                  for (int y = i - IDX[i]; y < 81; y += 9)
+                     {
+                        if (y != i && board[y] >= 0)
+                           {
+                              stack_data[i].stack &= ~(1 << board[y]);
+                           }
+                     }
+                  for (int y = IDG[i]; y < IDG[i] + 27; y += 9)
+                     {
+                        for (int x = y; x < y + 3; x++)
+                           {
+                              if (x != i && board[x] >= 0)
+                                 {
+                                    stack_data[i].stack &= ~(1 << board[x]);
+                                 }
+                           }
+                     }
+                  stack_data[i].LOC = i;
+                  hash += stack_data[i].MVR;
+               }
+         }
+      while (prevhash != hash)
+         {
+            prevhash = hash;
+            hash = 0;
+            for (i = 0; i < 81; i++)
+               {
+                  int count = __builtin_popcount (stack_data[i].stack);
+                  if (count == 1)
+                     {
+                        int8_t p = __builtin_ctz (stack_data[i].stack);
+                        update_option (i, p);
+                        board[i] = p;
+                        stack_data[i].stack = 1 << p;
+                        turn_on (i, p);
+                     }
+                  hash += count;
+               }
+         }
+      for (i = 0; i < 81; i++)
+         {
+            stack_data[i].stack = stack_data[i].stack;
+            stack_data[i].MVR = __builtin_popcount (stack_data[i].stack);
+            if (stack_data[i].MVR == 1)
+               stack_data[i].MVR = 127;
+            stack[i] = &stack_data[i];
+         }
+
+      std::sort (
+          stack.begin (), stack.end (),
+          [] (const data *a, const data *b) { return a->MVR < b->MVR; });
+      auto low_bd = std::lower_bound (
+          stack.begin (), stack.end (), 127,
+          [] (const data *d, int e) { return d->MVR < e; });
+      end = std::distance (stack.begin (), low_bd);
+
+      if (!backtrack_MVR (0))
+         {
+            return;
+         }
+
+      i = 0;
+      for (int y = 0; y < 9; y++)
+         {
+            for (int x = 0; x < 9; x++)
+               {
+                  sudoku[y][x] = board[i] + '1';
+                  i++;
+               }
+         }
+   }
+
+ private:
+   bool
+   backtrack_MVR (uint8_t idx)
+   {
+      if (idx >= end)
+         return true;
+      uint8_t loc = stack[idx]->LOC;
+
+      while (stack[idx]->MVR)
+         {
+            stack[idx]->MVR--;
+            int8_t s = __builtin_ctz (stack[idx]->stack);
+            stack[idx]->stack &= ~(1 << s);
+            if (validate (loc, s))
+               {
+                  board[loc] = s;
+                  turn_on (loc, s);
+
+                  // bottleneck
+                  std::array<data, 81> stack_copy;
+                  memcpy (&stack_copy, &stack_data, sizeof (stack_data));
+                  // bottleneck
+
+                  update_stack (loc, s, end);
+                  std::partial_sort (
+                      stack.begin () + idx + 1, stack.begin () + idx + 2,
+                      stack.begin () + end, [] (const data *a, const data *b) {
+                         return a->MVR < b->MVR;
+                      });
+                  if (backtrack_MVR (idx + 1))
+                     return true;
+                  turn_off (loc, s);
+                  board[loc] = -1;
+                  memcpy (&stack_data, &stack_copy, sizeof (stack_data));
+               }
+         }
+      return false;
+   }
+   inline void
+   update_option (const int &i, int8_t &p)
+   {
+      for (int j = IDX[i]; j < IDX[i] + 9; j++)
+         {
+            stack_data[j].stack &= ~(1 << p);
+         }
+      for (int j = i - IDX[i]; j < 81; j += 9)
+         {
+            stack_data[j].stack &= ~(1 << p);
+         }
+      for (int j = IDG[i]; j < IDG[i] + 27; j += 9)
+         {
+            for (int k = j; k < j + 3; k++)
+               {
+                  stack_data[k].stack &= ~(1 << p);
+               }
+         }
+   }
+
+   inline void
+   turn_on (const uint8_t &p, const int8_t &s)
+   {
+      uint16_t tmp = 1 << s;
+      row_m[ROW[p]] |= tmp;
+      col_m[COL[p]] |= tmp;
+      box_m[BOX[p]] |= tmp;
+   }
+   inline void
+   turn_off (const uint8_t &p, const int8_t &s)
+   {
+      uint16_t tmp = 1 << s;
+      row_m[ROW[p]] &= ~tmp;
+      col_m[COL[p]] &= ~tmp;
+      box_m[BOX[p]] &= ~tmp;
+   }
+
+   inline bool
+   validate (const uint8_t &p, const int8_t &s)
+   {
+      uint16_t tmp = 1 << s;
+      return !(row_m[ROW[p]] & tmp) && !(col_m[COL[p]] & tmp)
+             && !(box_m[BOX[p]] & tmp);
+   }
+
+   inline void
+   update_stack (const uint8_t &i, const int8_t &p, const uint8_t &end)
+   {
+      int j, k;
+
+      uint16_t mask = ~(1 << p);
+
+      for (j = IDX[i]; j < IDX[i] + 9; j++)
+         {
+            data &s = stack_data[j];
+            if (s.stack & ~mask)
+               {
+                  s.stack &= mask;
+                  s.MVR--;
+               }
+         }
+      for (j = i - IDX[i]; j < 81; j += 9)
+         {
+            data &s = stack_data[j];
+            if (s.stack & ~mask)
+               {
+                  s.stack &= mask;
+                  s.MVR--;
+               }
+         }
+      for (j = IDG[i]; j < IDG[i] + 27; j += 9)
+         {
+            for (k = j; k < j + 3; k++)
+               {
+                  data &s = stack_data[k];
+                  if (s.stack & ~mask)
+                     {
+                        s.stack &= mask;
+                        s.MVR--;
+                     }
+               }
+         }
+   }
+};
+*/
+
+//////////////////////////////////////////////////
+///
+/// ATTEMPTING MVR PART 9
+///
+/// YESIR TARGET of 0 ms is HIT BOI
+///
+/// IDK what I'll try but I'll try something
+///
+/// PD: I rearanged the lower bound and index calculations
+/// AND OMG that made it single digit micro second solution
+///
+/// PD 2: Eliminated the excessive __builtin_popcount calls
+/// and updated MVRs directly before the backtrack is called
+///
+/**********************************************
+ *                                            *
+ *  TESTED IN:                                *
+ *  Linux macbook-air 6.13.7-arch1-1 #1 SMP   *
+ *  PREEMPT_DYNAMIC Thu, 13 Mar 2025          *
+ *  18:12:00 +0000 x86_64 GNU/Linux           *
+ *                                            *
+ **********************************************
+
+     Executed 5 runs of 10,000
+     function calls on the same board.
+     Average execution time per call
+     ranged from:
+
+                        [8026  ns , 8546   ns]
+
+                        [7     μs , 8      μs]
+
+ ************************************************/
+
+class Solution
+{
+ private:
+   constexpr static const int8_t IDX[81]
+       = { 0,  0,  0,  0,  0,  0,  0,  0,  0,  9,  9,  9,  9,  9,  9,  9,  9,
+           9,  18, 18, 18, 18, 18, 18, 18, 18, 18, 27, 27, 27, 27, 27, 27, 27,
+           27, 27, 36, 36, 36, 36, 36, 36, 36, 36, 36, 45, 45, 45, 45, 45, 45,
+           45, 45, 45, 54, 54, 54, 54, 54, 54, 54, 54, 54, 63, 63, 63, 63, 63,
+           63, 63, 63, 63, 72, 72, 72, 72, 72, 72, 72, 72, 72 };
+
+   constexpr static const int8_t IDG[81]
+       = { 0,  0,  0,  3,  3,  3,  6,  6,  6,  0,  0,  0,  3,  3,  3,  6,  6,
+           6,  0,  0,  0,  3,  3,  3,  6,  6,  6,  27, 27, 27, 30, 30, 30, 33,
+           33, 33, 27, 27, 27, 30, 30, 30, 33, 33, 33, 27, 27, 27, 30, 30, 30,
+           33, 33, 33, 54, 54, 54, 57, 57, 57, 60, 60, 60, 54, 54, 54, 57, 57,
+           57, 60, 60, 60, 54, 54, 54, 57, 57, 57, 60, 60, 60 };
+
+   constexpr static const int8_t ROW[81]
+       = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2,
+           2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4,
+           4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+           7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+   constexpr static const int8_t COL[81]
+       = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2,
+           3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5,
+           6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8,
+           0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+   constexpr static const int8_t BOX[81]
+       = { 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0,
+           1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 3, 3, 3, 4, 4, 4,
+           5, 5, 5, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8,
+           6, 6, 6, 7, 7, 7, 8, 8, 8, 6, 6, 6, 7, 7, 7, 8, 8, 8 };
+
+ private: // custom data container
+   struct data
+   {
+      uint16_t stack;
+      int8_t MVR;
+      uint8_t LOC;
+      bool
+      operator< (const data &other) const
+      {
+         return MVR < other.MVR;
+      }
+   };
+
+ private: // holders
+   std::array<int8_t, 81> board;
+   std::array<data, 81> stack_data;
+   std::array<uint16_t, 9> row_m, col_m, box_m;
+
+ private: // pointers to stack_data to suffle arround and sort
+   std::array<data *, 81> stack;
+
+ private: // end
+   constexpr static const uint8_t end = 81;
+
+ public:
+   void
+   solveSudoku (std::vector<std::vector<char>> &sudoku)
+   {
+      long prevhash = 0, hash = 0;
+      int i = 0;
+      for (int y = 0; y < 9; y++)
+         {
+            row_m[y] = 0;
+            col_m[y] = 0;
+            box_m[y] = 0;
+            for (int x = 0; x < 9; x++)
+               {
+                  board[i] = sudoku[y][x] - '1';
+                  stack_data[i].stack = 0b0000000111111111;
+                  stack_data[i].MVR = 9;
+                  i++;
+               }
+         }
+      for (i = 0; i < 81; i++)
+         {
+            stack_data[i].LOC = i;
+            if (board[i] >= 0)
+               {
+                  uint16_t pp = 1 << board[i];
+                  stack_data[i].stack = pp;
+                  turn_on (i, board[i]);
+                  stack_data[i].MVR = 1;
+                  hash += stack_data[i].MVR;
+
+                  update_option (i, board[i]);
+               }
+         }
+      while (prevhash != hash)
+         {
+            prevhash = hash;
+            hash = 0;
+            for (i = 0; i < 81; i++)
+               {
+                  if (stack_data[i].MVR == 1)
+                     {
+                        int8_t p = __builtin_ctz (stack_data[i].stack);
+                        update_option (i, p);
+                        board[i] = p;
+                        stack_data[i].stack = 1 << p;
+                        turn_on (i, p);
+                     }
+                  hash += stack_data[i].MVR;
+               }
+         }
+      for (i = 0; i < 81; i++)
+         {
+            stack_data[i].stack = stack_data[i].stack;
+            stack_data[i].MVR = __builtin_popcount (stack_data[i].stack);
+            stack[i] = &stack_data[i];
+         }
+
+      //// THIS TAKES FUCKING 8.84% of CPU TIME WTF
+      std::sort (
+          stack.begin (), stack.end (),
+          [] (const data *a, const data *b) { return a->MVR < b->MVR; });
+      ////
+
+      auto low_bd = std::lower_bound (
+          stack.begin (), stack.end (), 2,
+          [] (const data *d, int e) { return d->MVR < e; });
+      uint8_t st = std::distance (stack.begin (), low_bd);
+
+      if (!backtrack_MVR (st))
+         {
+            return;
+         }
+
+      i = 0;
+      for (int y = 0; y < 9; y++)
+         {
+            for (int x = 0; x < 9; x++)
+               {
+                  sudoku[y][x] = board[i] + '1';
+                  i++;
+               }
+         }
+   }
+
+ private:
+   bool
+   backtrack_MVR (uint8_t idx)
+   {
+      if (idx >= end)
+         return true;
+      uint8_t loc = stack[idx]->LOC;
+
+      while (stack[idx]->MVR)
+         {
+            stack[idx]->MVR--;
+            int8_t s = __builtin_ctz (stack[idx]->stack);
+            stack[idx]->stack &= ~(1 << s);
+            if (validate (loc, s))
+               {
+                  board[loc] = s;
+                  turn_on (loc, s);
+
+                  // UPDATE:
+                  //// according to valgrind this takes < 1% of CPU time
+                  //// therefore its not a bottleneck
+                  std::array<data, 81> stack_copy;
+                  memcpy (&stack_copy, &stack_data, sizeof (stack_data));
+                  //// so its actually very efficient
+
+                  /// this function still takes 20.2% of CPU time
+                  update_option (loc, s);
+                  ///
+
+                  /// and this takes 32.74 % of CPU time
+                  std::partial_sort (stack.begin () + idx + 1,
+                                     stack.begin () + idx + 2, stack.end (),
+                                     [] (const data *a, const data *b) {
+                                        return a->MVR < b->MVR;
+                                     });
+                  ///
+
+                  if (backtrack_MVR (idx + 1))
+                     return true;
+                  turn_off (loc, s);
+                  board[loc] = -1;
+                  /// same as the prev memcpy
+                  memcpy (&stack_data, &stack_copy, sizeof (stack_data));
+                  ///
+               }
+         }
+      return false;
+   }
+
+   inline void
+   update_option (const int &i, const int8_t &p)
+   {
+      int j, k;
+
+      uint16_t mask = ~(1 << p);
+
+      for (j = IDX[i]; j < IDX[i] + 9; j++)
+         {
+            data &s = stack_data[j];
+            if (s.stack & ~mask)
+               {
+                  s.stack &= mask;
+                  s.MVR--;
+               }
+         }
+      for (j = i - IDX[i]; j < 81; j += 9)
+         {
+            data &s = stack_data[j];
+            if (s.stack & ~mask)
+               {
+                  s.stack &= mask;
+                  s.MVR--;
+               }
+         }
+      for (j = IDG[i]; j < IDG[i] + 27; j += 9)
+         {
+            for (k = j; k < j + 3; k++)
+               {
+                  data &s = stack_data[k];
+                  if (s.stack & ~mask)
+                     {
+                        s.stack &= mask;
+                        s.MVR--;
+                     }
+               }
+         }
+   }
+
+   inline void
+   turn_on (const uint8_t &p, const int8_t &s)
+   {
+      uint16_t tmp = 1 << s;
+      row_m[ROW[p]] |= tmp;
+      col_m[COL[p]] |= tmp;
+      box_m[BOX[p]] |= tmp;
+   }
+   inline void
+   turn_off (const uint8_t &p, const int8_t &s)
+   {
+      uint16_t tmp = 1 << s;
+      row_m[ROW[p]] &= ~tmp;
+      col_m[COL[p]] &= ~tmp;
+      box_m[BOX[p]] &= ~tmp;
+   }
+
+   inline bool
+   validate (const uint8_t &p, const int8_t &s)
+   {
+      uint16_t tmp = 1 << s;
+      return !(row_m[ROW[p]] & tmp) && !(col_m[COL[p]] & tmp)
+             && !(box_m[BOX[p]] & tmp);
+   }
+};
+
 ///////////////////////////////////////////////////////////////////
 //////// debuging       //////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////
@@ -3265,7 +4794,7 @@ class Solution
    // Public function to solve the board in-place.
    // The board is a 9x9 grid with digits '1'-'9' and '.' for empty cells.
    void
-   solveSudoku (std::vector<std::vector<char> > &board)
+   solveSudoku (std::vector<std::vector<char>> &board)
    {
       // Initialize bitmasks for rows, columns, and blocks.
       rows.assign (9, 0);
@@ -3301,7 +4830,7 @@ class Solution
  private:
    std::vector<int> rows, cols,
        blocks; // Bitmasks for each row, column, block.
-   std::vector<std::pair<int, int> >
+   std::vector<std::pair<int, int>>
        empties; // List of positions for empty cells.
 
    // Compute block index for cell (i, j).
@@ -3313,7 +4842,7 @@ class Solution
 
    // Recursive backtracking solver.
    bool
-   solve (std::vector<std::vector<char> > &board, int pos)
+   solve (std::vector<std::vector<char>> &board, int pos)
    {
       // If we've filled all empty cells, we're done.
       if (pos == empties.size ())
@@ -3374,8 +4903,8 @@ class Solution
          }
 
       // No candidate worked, so backtrack.
-      std::swap (empties[pos], empties[minPos]); // (Optional) Restore
-order. return false;
+      std::swap (empties[pos], empties[minPos]); // (Optional) Restoreorder.
+      return false;
    }
 };
 */
@@ -3397,7 +4926,7 @@ order. return false;
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 inline bool
-isValidSudokuwithempies (std::vector<std::vector<char> > &board)
+isValidSudokuwithempies (std::vector<std::vector<char>> &board)
 {
    char pp;
    unsigned char i, j;
@@ -3476,7 +5005,7 @@ isValidSudokuwithempies (std::vector<std::vector<char> > &board)
 }
 // be aware edited so that if it finds a point it retuns false;
 inline bool
-isValidSudoku (std::vector<std::vector<char> > &board)
+isValidSudoku (std::vector<std::vector<char>> &board)
 {
    char pp;
    unsigned char i, j;
@@ -3554,7 +5083,7 @@ isValidSudoku (std::vector<std::vector<char> > &board)
    return true;
 }
 
-std::vector<std::vector<std::vector<char> > > boards_gtp = { // testcase 0
+std::vector<std::vector<std::vector<char>>> boards_gtp = { // testcase 0
    { { '1', '.', '.', '.', '.', '7', '4', '.', '.' },
      { '.', '3', '.', '.', '2', '.', '.', '.', '8' },
      { '.', '.', '9', '6', '.', '.', '.', '.', '.' },
@@ -4012,7 +5541,7 @@ test_individua (size_t test_num, bool prints)
 int
 main ()
 {
-   test_individua (7, true);
+   // test_individua (7, true);
    test_n_times (7, false);
    std::cout
        << "\033[1;31m "
@@ -4026,6 +5555,6 @@ main ()
                 "[----------------------------------------------------------"
                 "--------------------------"
              << "] \n\n \033[0m";
-   test_commulative (false);
+   // test_commulative (false);
    return 0;
 };
