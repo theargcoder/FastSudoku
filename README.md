@@ -6,7 +6,12 @@ The latest version can solve *almost* any board in **under 9 microseconds (μs)*
 
 The algorithm uses techniques like **Minimum Remaining Values (MRV) Backtracking** to accelerate the solving process.
 
------------------------------------------------------------------------------------------------------------------------------
+
+## 💨 LeetCode Performance
+
+- **0 ms** runtime — beats **100%** of C++ submissions ⏱️
+- **29.51%** better than other solutions in memory usage 🧠
+
 
 ## 🔥 IMPORTANT DISCLOSURE 🔥
 
@@ -19,12 +24,9 @@ All benchmark results were obtained under **controlled conditions** using the **
 - `PREEMPT_DYNAMIC Thu, 7 Apr 2025`  
 - `11:34:00 +0000 x86_64 GNU/Linux`  
 
------------------------------------------------------------------------------------------------------------------------------
 
 ## ⚡ Benchmark Results (Latest Version)
 
-LeetCode: **0 ms** runtime ⏱️ — beats **100%** of C++ submissions.  
-Memory usage: **Better than 29.51%** of accepted solutions 🧠
 
 | Test Case                       | Time (ms) | Time (μs) |   Time (ns)   |
 |---------------------------------|-----------|-----------|---------------|
@@ -39,7 +41,6 @@ Memory usage: **Better than 29.51%** of accepted solutions 🧠
 | **Five-cell board**             |     0     |     7     |       7,789   | 
 
 
------------------------------------------------------------------------------------------------------------------------------
 
 ## 📥 Download, Compile & Run It Yourself
 
@@ -81,7 +82,6 @@ For **THE MOST** compiler **optimization** possible
 ```
 
 
------------------------------------------------------------------------------------------------------------------------------
-
+## THANKS
 
 Enjoy the speed. 🧠💨
