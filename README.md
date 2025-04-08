@@ -1,6 +1,6 @@
 # 🔢 FastSudoku
 
-This repository contains a **super efficient** implementation of a Sudoku solving algorithm capable of handling **any valid** [9x9 Sudoku puzzle](https://github.com/theargcoder/FastSudoku/blob/main/board_validator/main.cpp).
+This repository contains a **super efficient** implementation of a Sudoku solving algorithm capable of handling **any valid** [9x9 Sudoku puzzle](https://github.com/theargcoder/FastSudoku/blob/main/board_validator/solution_post.md).
 
 The latest version can solve *almost* any board in **under 9 microseconds (μs)** — that’s **under 9 millionths of a second**!
 
