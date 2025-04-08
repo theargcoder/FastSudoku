@@ -1,67 +1,83 @@
-# FastSudoku
-This repository contains an efficient implementation of a Sudoku solving algorithm designed to solve any standard 9x9 Sudoku puzzle. It can be able to solve any board in under 900 micro-seconds. The algorithm employs advanced techniques, such as MVR Backtracking, to optimize the solving process. 
+# 🔢 FastSudoku
 
-# 🚀 **1 ms Sudoku Solver PID 37 – The Ultimate 50 μs Solution: MVR, Backtracking, Bitmasks, Shifts & Hyper-Optimization ⚡**
+This repository contains a **super efficient** implementation of a Sudoku solving algorithm capable of handling **any valid** [9x9 Sudoku puzzle](https://github.com/theargcoder/FastSudoku/blob/main/board_validator/main.cpp).
 
-## 🔥 IMPORTANT DISCLOSURE
+The latest version can solve *almost* any board in **under 9 microseconds (μs)** — that’s **under 9 millionths of a second**!
 
-Test benching numbers provided for all examples were obtained on the same board (for the 10k call test) and the same batch of 12 test benches (for cumulative test bench time, similar to LeetCode's).
+The algorithm uses advanced techniques like **Minimum Remaining Values (MRV) Backtracking** to accelerate the solving process.
 
-All versions and testing code can be found in the full **3000 lines of code** on my GitHub [here](https://github.com/theargcoder/LeetCode/tree/main/cpp/problem_id_37), including all versions and progressions between different implementations.
+-----------------------------------------------------------------------------------------------------------------------------
 
-**All test case figures provided were compiled using the `-Ofast` flag and tested on my machine.**
+## 🔥 IMPORTANT DISCLOSURE 🔥
 
--------------------------------------------------------------------------------------------------------------------------------------------------
+All benchmark results were obtained under **controlled conditions** using the **selected board** (#x) for the 10k test, and a **fixed batch of 12 test cases** for cumulative timing — similar in style to how **LeetCode** benchmarks.
 
-### **1st Approach - MVR Backtracking**
+> ⚠️ All binaries were compiled using the `-Ofast` optimization flag.
 
-**Problems Identified in previous approaches :**
-- Excessive board accesses for checking.
-- Inefficient conditional branching.
-- Inefficient digit selection (looping through bits—what was I thinking?).
-- Propositional Table didn't eliminate options with only **one valid value** per row, column, or 3×3 grid, leading to unnecessary backtracking.
-- No priority order in cell selection.
+**TESTED ON:**  
+- `Linux macbook-air 6.13.7-arch1-1 #1 SMP`  
+- `PREEMPT_DYNAMIC Thu, 7 Apr 2025`  
+- `11:34:00 +0000 x86_64 GNU/Linux`  
 
-**Solutions Applied:**
-- Used **3 `std::array<uint16_t, 9>`** masks for fast bitwise validity checks (way faster than looping through options).
-- Used `__builtin_popcount` to count set bits in the option field for each cell.
-- Used `__builtin_ctz` to extract the LSB digit and validate against masks.
-- Implemented **MVR (Minimum Remaining Values)** to prioritize cells with the fewest options.
-- Assigned a **MVR value of 127** to constant cells so they get sorted and ignored.
-- Iteratively updated the **Propositional Table** until no further simplifications were possible.
-- Precomputed all indexes to reduce overhead.
+-----------------------------------------------------------------------------------------------------------------------------
 
-**Benchmark:**
-- Average time across **10k calls** (on a hard board).
-  - **54 μs**
-- **12 hardest boards: (can see in github @theargcoder)**
-  - **26 ms** (note its slower, thats due to some of my testcase been empty/emptyish this algorithm is excelent at 1 solution style boards)
-- LeetCode Solution Time:
-  - **1 ms** *HELL YEAH* (beats 99.03%)
+## ⚡ Benchmark Results (Latest Version)
 
--------------------------------------------------------------------------------------------------------------------------------------------------
+| Test Case                          | Time (ns) | Time (μs) | Time (ms) |
+|-----------------------------------|-----------|-----------|-----------|
+| **Board #7 (10k average)**        |   8,218   |     7     |     –     |
+| **12-board cumulative test**      |   –       |  6,243    |     6     |
+| **Hardest board (#6)**            | 1,920,297 |  1,919    |     1     |
+| **Second hardest board (#2)**     | 1,729,112 |  1,728    |     1     |
+| **Third hardest board (#10)**     | 1,717,267 |  1,716    |     1     |
+| **Empty board**                   |  10,227   |     9     |     0     |
+| **Single-cell board**             |   8,981   |     8     |     0     |
+| **Three-cell board**              |   8,031   |     7     |     0     |
+| **Five-cell board**               |   7,789   |     7     |     0     |
 
-### **2nd Approach - MVR Dynamic** 
+-----------------------------------------------------------------------------------------------------------------------------
 
-- [Approach 4: MVR Backtracking Dynamic - Beats 98.86%](#approach-4-mvr-dynamic)
+## 📥 Download, Compile & Run It Yourself
 
-**Key Changes:**
-- Designed to **avoid copying back the stack**, at the cost of **using dynamically allocated memory**.
-- Without optimization flags, **performance drops significantly** due to repeated `.back()` and `.front()` calls.
+Clone the repository:
+
+```bash
+git clone https://github.com/theargcoder/FastSudoku/
+cd FastSudoku
+```
+### OPTIONAL 
+
+-----------------------------------------------------------------------------------------------------------------------------
+
+#### Edit the following in `board_solver/main.cpp`
+
+- `test_individual`, `test_n_times`, and `test_commulative` functions – modify these to suit your test style.
+
+- `boards_gpt`– update this vector to try out your own boards.
+
+- You can also uncomment previous versions of the solver to benchmark them too!
+
+-----------------------------------------------------------------------------------------------------------------------------
+
+Compile inside `board_solver/` with:
+
+For **some** compiler **optimization**
+```bash
+ g++ -std=c++17 -Wall -O2 main.cpp -o main
+```
+
+For **a lot** of compiler **optimization**
+```bash
+ g++ -std=c++17 -Wall -O3 main.cpp -o main
+```
+
+For **THE MOST** compiler **optimization** possible
+```bash
+ g++ -std=c++17 -Wall -Ofast main.cpp -o main
+```
 
 
-**Benchmark:**
-- Average time across **10k calls** (on a hard board).
-  - **55 μs**
-- **12 hardest boards: (can see in github @theargcoder)**
-  - **25 ms** (note its slower, thats due to some of my testcase been empty/emptyish this algorithm is excelent at 1 solution style boards)
-- LeetCode Solution Time:
-  - **2 ms** *HELL YEAH* (beats 98.86%)
-
--------------------------------------------------------------------------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------------------------------------------------------------------------
-
-## 💻 **Code Implementations**
+-----------------------------------------------------------------------------------------------------------------------------
 
 
+Enjoy the speed. 🧠💨
