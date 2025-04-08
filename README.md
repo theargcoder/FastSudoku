@@ -9,6 +9,10 @@ The algorithm uses techniques like **Minimum Remaining Values (MRV) Backtracking
 
 ## 💨 LeetCode Performance
 
+solution can be found [here](https://leetcode.com/submissions/detail/1599823069/) and another one [here](https://leetcode.com/submissions/detail/1600120920/)
+
+> note that the variance of the times is massive, their testing VM is shit 
+
 - **0 ms** runtime — beats **100%** of C++ submissions ⏱️
 - **29.51%** better than other solutions in memory usage 🧠
 
