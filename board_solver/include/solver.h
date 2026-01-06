@@ -160,10 +160,10 @@ public:
     }
 
     //// THIS TAKES FUCKING 8.84% of CPU TIME WTF
-    std::sort(stack.begin(), stack.end(), [](const data &a, const data &b) { return a.MVR < b.MVR; });
+    std::sort(stack.begin(), stack.end(), [](const data *a, const data *b) { return a->MVR < b->MVR; });
     ////
 
-    auto low_bd = std::lower_bound(stack.begin(), stack.end(), 2, [](const data &d, int8_t e) { return d.MVR < e; });
+    auto low_bd = std::lower_bound(stack.begin(), stack.end(), 2, [](const data *d, int8_t e) { return d->MVR < e; });
     uint8_t st = std::distance(stack.begin(), low_bd);
 
     if(!backtrack_MVR(st))

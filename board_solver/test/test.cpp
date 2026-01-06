@@ -475,7 +475,7 @@ void test_commulative(bool prints)
   return;
 }
 
-void test_individua(size_t test_num, bool prints)
+void test_individual(size_t test_num, bool prints)
 {
   Solution solver;
   /////////////////////////////////////////////////////////////////////////
@@ -569,7 +569,7 @@ void test_individua(size_t test_num, bool prints)
 
 int main()
 {
-  // test_individua (7, true);
+  // test_individual(7, true);
   test_n_times(7, false);
   std::cout << "\033[1;31m "
                "\n\n[----------------------------------------------------------"
@@ -582,6 +582,6 @@ int main()
                "[----------------------------------------------------------"
                "--------------------------"
             << "] \n\n \033[0m";
-  // test_commulative (false);
+  // test_commulative(false);
   return 0;
 };
