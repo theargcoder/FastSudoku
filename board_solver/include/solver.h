@@ -1,11 +1,16 @@
+#pragma once
+
 #include <algorithm>
 #include <array>
 #include <bits/floatn-common.h>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
-#include <iterator>
+#include <flat_set>
+#include <functional>
 #include <vector>
+
+#include "helper.h"
 
 //////////////////////////////////////////////////
 ///
@@ -48,23 +53,23 @@ private:
   constexpr static auto BOARD_SIZE = 81;
   constexpr static auto ROW_SIZE = 9;
 
-  constexpr static const int8_t IDX[BOARD_SIZE]
+  constexpr static const std::array<int8_t, BOARD_SIZE> IDX
       = { 0,  0,  0,  0,  0,  0,  0,  0,  0,  9,  9,  9,  9,  9,  9,  9,  9,  9,  18, 18, 18, 18, 18, 18, 18, 18, 18,
           27, 27, 27, 27, 27, 27, 27, 27, 27, 36, 36, 36, 36, 36, 36, 36, 36, 36, 45, 45, 45, 45, 45, 45, 45, 45, 45,
           54, 54, 54, 54, 54, 54, 54, 54, 54, 63, 63, 63, 63, 63, 63, 63, 63, 63, 72, 72, 72, 72, 72, 72, 72, 72, 72 };
 
-  constexpr static const int8_t IDG[BOARD_SIZE]
+  constexpr static const std::array<int8_t, BOARD_SIZE> IDG
       = { 0,  0,  0,  3,  3,  3,  6,  6,  6,  0,  0,  0,  3,  3,  3,  6,  6,  6,  0,  0,  0,  3,  3,  3,  6,  6,  6,
           27, 27, 27, 30, 30, 30, 33, 33, 33, 27, 27, 27, 30, 30, 30, 33, 33, 33, 27, 27, 27, 30, 30, 30, 33, 33, 33,
           54, 54, 54, 57, 57, 57, 60, 60, 60, 54, 54, 54, 57, 57, 57, 60, 60, 60, 54, 54, 54, 57, 57, 57, 60, 60, 60 };
 
-  constexpr static const int8_t ROW[BOARD_SIZE]
+  constexpr static const std::array<int8_t, BOARD_SIZE> ROW
       = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
           4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
-  constexpr static const int8_t COL[BOARD_SIZE]
+  constexpr static const std::array<int8_t, BOARD_SIZE> COL
       = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4,
           5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8 };
-  constexpr static const int8_t BOX[BOARD_SIZE]
+  constexpr static const std::array<int8_t, BOARD_SIZE> BOX
       = { 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 3, 3, 3, 4, 4,
           4, 5, 5, 5, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8, 6, 6, 6, 7, 7, 7, 8, 8, 8, 6, 6, 6, 7, 7, 7, 8, 8, 8 };
 
@@ -72,7 +77,7 @@ private: // custom data container
   struct __attribute__((packed)) data
   {
     uint16_t stack;
-    int8_t MVR;
+    uint8_t MVR;
     uint8_t LOC;
     bool operator<(const data &other) const
     {
@@ -86,10 +91,11 @@ private: // holders
   std::array<uint16_t, ROW_SIZE> row_m, col_m, box_m;
 
 private: // pointers to stack_data to suffle arround and sort
-  std::array<data *, BOARD_SIZE> stack;
+  using mrv_data_pair = std::pair<uint8_t, data *>;
+  std::flat_multiset<mrv_data_pair, std::less<>, std::vector<mrv_data_pair>> stack;
 
 public:
-  void solveSudoku(std::vector<std::vector<char>> &sudoku)
+  void solveSudoku(std::vector<std::vector<char>> &sudoku) noexcept
   {
     long prevhash = 0, hash = 0;
     int i = 0;
@@ -159,14 +165,7 @@ public:
       stack[i] = &stack_data[i];
     }
 
-    //// THIS TAKES FUCKING 8.84% of CPU TIME WTF
-    std::sort(stack.begin(), stack.end(), [](const data *a, const data *b) { return a->MVR < b->MVR; });
-    ////
-
-    auto low_bd = std::lower_bound(stack.begin(), stack.end(), 2, [](const data *d, int8_t e) { return d->MVR < e; });
-    uint8_t st = std::distance(stack.begin(), low_bd);
-
-    if(!backtrack_MVR(st))
+    if(!backtrack_MVR())
     {
       return;
     }
@@ -183,7 +182,7 @@ public:
   }
 
 private:
-  bool backtrack_MVR(uint8_t idx)
+  bool backtrack_MVR() noexcept
   {
     if(idx >= BOARD_SIZE)
     {
@@ -224,7 +223,7 @@ private:
                           [](const data *a, const data *b) { return a->MVR < b->MVR; });
         ///
 
-        if(backtrack_MVR(idx + 1))
+        if(backtrack_MVR())
           return true;
         row_m[ROW[loc]] &= NSHF;
         col_m[COL[loc]] &= NSHF;
@@ -238,7 +237,7 @@ private:
     return false;
   }
 
-  inline void update_option(const int &i, const uint16_t &SHF, const uint16_t &NSHF)
+  inline void update_option(const int &i, const uint16_t &SHF, const uint16_t &NSHF) noexcept
   {
     static int j, k;
 

@@ -1,6 +1,7 @@
 *.data
 *.data.old
 test
+build/
 
 # Prerequisites
 *.d
