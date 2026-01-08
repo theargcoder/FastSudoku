@@ -4,9 +4,9 @@
 
 // requires std::is_trivially_constructible_v<T> && std::is_trivially_destructible_v<T>
 template <typename Key, typename Val>
-void DataStructures::Hash::FastHashTable<Key, Val>::Insert(const Key &&key, const Val &&val) noexcept
+void DataStructures::Hash::FastHashTable<Key, Val>::Insert(const Key &&key, const Val &val) noexcept
 {
-  const auto hsh = hash(std::forward<Key>(key));
+  const auto hsh = hash(std::forward<const Key>(key));
   const auto loc = mod(hsh);
 
   if(used[loc])
@@ -21,7 +21,7 @@ void DataStructures::Hash::FastHashTable<Key, Val>::Insert(const Key &&key, cons
 template <typename Key, typename Val>
 void DataStructures::Hash::FastHashTable<Key, Val>::Remove(const Key &&key) noexcept
 {
-  const auto hsh = hash(std::forward<Key>(key));
+  const auto hsh = hash(std::forward<const Key>(key));
   const auto loc = mod(hsh);
 
   if(used[loc])

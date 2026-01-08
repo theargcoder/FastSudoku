@@ -23,12 +23,12 @@ namespace DataStructures::Hash
 
   private:
     template <typename K>
-    static uint64_t hash(K in)
+    static uint64_t hash(const K &&in)
       requires std::is_integral_v<K> || std::is_floating_point_v<K> || std::is_convertible_v<K, std::string_view>
     {
       if constexpr(std::is_integral_v<K> || std::is_floating_point_v<K>)
       {
-        return static_cast<uint64_t>(in);
+        return static_cast<const uint64_t>(in);
       }
       else if constexpr(std::is_same_v<K, std::string> || std::is_same_v<K, std::string_view>)
       {
@@ -75,7 +75,7 @@ namespace DataStructures::Hash
     }
 
   public:
-    void Insert(const Key && /*key*/, const Val && /*val*/) noexcept;
+    void Insert(const Key && /*key*/, const Val & /*val*/) noexcept;
     void Remove(const Key && /*key*/) noexcept;
     [[nodiscard]] Val *get() noexcept;
     [[nodiscard]] size_t size() noexcept;
@@ -83,7 +83,7 @@ namespace DataStructures::Hash
   public:
     Val &operator[](const Key &&in)
     {
-      const auto hsh = hash(std::forward<Key>(in));
+      const auto hsh = hash(std::forward<const Key>(in));
       const auto loc = mod(hsh);
       return array[loc];
     }
