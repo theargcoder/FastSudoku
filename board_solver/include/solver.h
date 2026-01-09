@@ -1,19 +1,11 @@
-#pragma once
-
 #include <algorithm>
 #include <array>
 #include <bits/floatn-common.h>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
-#include <flat_set>
-#include <functional>
-#include <set>
-#include <unordered_map>
-#include <utility>
+#include <iterator>
 #include <vector>
-
-#include "helper.h"
 
 //////////////////////////////////////////////////
 ///
@@ -80,7 +72,7 @@ private: // custom data container
   struct __attribute__((packed)) data
   {
     uint16_t stack;
-    uint8_t MVR;
+    int8_t MVR;
     uint8_t LOC;
     bool operator<(const data &other) const
     {
@@ -94,10 +86,7 @@ private: // holders
   std::array<uint16_t, ROW_SIZE> row_m, col_m, box_m;
 
 private: // pointers to stack_data to suffle arround and sort
-  using mrv_data_pair = std::pair<uint8_t, data *>;
-  std::multiset<mrv_data_pair, std::less<>> stack;
-  std::unordered_map<uint64_t, decltype(stack)::iterator> translator;
-  // DataStructures::Hash::FastHashTable<uint64_t, decltype(stack)::iterator> translator;
+  std::array<data *, BOARD_SIZE> stack;
 
 public:
   void solveSudoku(std::vector<std::vector<char>> &sudoku)
@@ -135,7 +124,7 @@ public:
         stack_data[i].MVR = 1;
         hash += stack_data[i].MVR;
 
-        update_option<false>(i, SHF, NSHF);
+        update_option(i, SHF, NSHF);
       }
     }
     while(prevhash != hash)
@@ -150,7 +139,7 @@ public:
 
           uint16_t SHF = 1 << board[i];
           uint16_t NSHF = ~SHF;
-          update_option<false>(i, SHF, NSHF);
+          update_option(i, SHF, NSHF);
 
           stack_data[i].stack = SHF;
 
@@ -167,11 +156,17 @@ public:
     {
       stack_data[i].stack = stack_data[i].stack;
       stack_data[i].MVR = __builtin_popcount(stack_data[i].stack);
-      auto it = stack.insert(std::make_pair(stack_data[i].MVR, &stack_data[i]));
-      translator.insert(std::make_pair(i, it));
+      stack[i] = &stack_data[i];
     }
 
-    if(!backtrack_MVR())
+    //// THIS TAKES FUCKING 8.84% of CPU TIME WTF
+    std::sort(stack.begin(), stack.end(), [](const data *a, const data *b) { return a->MVR < b->MVR; });
+    ////
+
+    auto low_bd = std::lower_bound(stack.begin(), stack.end(), 2, [](const data *d, int8_t e) { return d->MVR < e; });
+    uint8_t st = std::distance(stack.begin(), low_bd);
+
+    if(!backtrack_MVR(st))
     {
       return;
     }
@@ -188,25 +183,23 @@ public:
   }
 
 private:
-  bool backtrack_MVR()
+  bool backtrack_MVR(uint8_t idx)
   {
-    if(stack.empty())
+    if(idx >= BOARD_SIZE)
     {
       return true;
     }
+    uint8_t loc = stack[idx]->LOC;
 
-    auto &best = *stack.begin()->second;
-    uint8_t &loc = best.LOC;
-
-    while(best.MVR)
+    while(stack[idx]->MVR)
     {
-      best.MVR--;
-      uint8_t s = __builtin_ctz(best.stack);
+      stack[idx]->MVR--;
+      int8_t s = __builtin_ctz(stack[idx]->stack);
 
       uint16_t SHF = 1 << s;
       uint16_t NSHF = ~SHF;
 
-      best.stack &= NSHF;
+      stack[idx]->stack &= NSHF;
 
       if(!(row_m[ROW[loc]] & SHF) && !(col_m[COL[loc]] & SHF) && !(box_m[BOX[loc]] & SHF))
       {
@@ -221,37 +214,33 @@ private:
         std::array<data, 81> stack_copy;
         memcpy(&stack_copy, &stack_data, sizeof(stack_data));
         //// so its actually very efficient
-        auto cpy = stack;
 
         /// this function still takes 20.2% of CPU time
-        update_option<true>(loc, SHF, NSHF);
+        update_option(loc, SHF, NSHF);
+        ///
 
-        if(backtrack_MVR())
+        /// and this takes 32.74 % of CPU time
+        std::partial_sort(stack.begin() + idx + 1, stack.begin() + idx + 2, stack.end(),
+                          [](const data *a, const data *b) { return a->MVR < b->MVR; });
+        ///
+
+        if(backtrack_MVR(idx + 1))
           return true;
-
         row_m[ROW[loc]] &= NSHF;
         col_m[COL[loc]] &= NSHF;
         box_m[BOX[loc]] &= NSHF;
         board[loc] = -1;
         /// same as the prev memcpy
         memcpy(&stack_data, &stack_copy, sizeof(stack_data));
-
-        stack = cpy; // Iterators in translator are now garbage.
-        translator.clear();
-        for(auto it = stack.begin(); it != stack.end(); it++)
-        {
-          translator[it->second->LOC] = it; // Re-sync the addresses
-        }
         ///
       }
     }
     return false;
   }
 
-  template <bool multiset>
-  inline void update_option(const uint8_t &i, const uint16_t &SHF, const uint16_t &NSHF)
+  inline void update_option(const int &i, const uint16_t &SHF, const uint16_t &NSHF)
   {
-    static uint8_t j, k;
+    static int j, k;
 
     for(j = IDX[i]; j < IDX[i] + ROW_SIZE; j++)
     {
@@ -259,15 +248,6 @@ private:
       {
         stack_data[j].stack &= NSHF;
         stack_data[j].MVR--;
-
-        if constexpr(multiset)
-        {
-          auto begit = translator[j];
-          auto node = stack.extract(begit);
-          node.value().first = stack_data[j].MVR;
-          auto new_it = stack.insert(std::move(node));
-          translator[j] = new_it;
-        }
       }
     }
     for(j = i - IDX[i]; j < BOARD_SIZE; j += ROW_SIZE)
@@ -276,15 +256,6 @@ private:
       {
         stack_data[j].stack &= NSHF;
         stack_data[j].MVR--;
-
-        if constexpr(multiset)
-        {
-          auto begit = translator[j];
-          auto node = stack.extract(begit);
-          node.value().first = stack_data[j].MVR;
-          auto new_it = stack.insert(std::move(node));
-          translator[j] = new_it;
-        }
       }
     }
     for(j = IDG[i]; j < IDG[i] + 27; j += ROW_SIZE)
@@ -295,15 +266,6 @@ private:
         {
           stack_data[k].stack &= NSHF;
           stack_data[k].MVR--;
-
-          if constexpr(multiset)
-          {
-            auto begit = translator[k];
-            auto node = stack.extract(begit);
-            node.value().first = stack_data[k].MVR;
-            auto new_it = stack.insert(std::move(node));
-            translator[k] = new_it;
-          }
         }
       }
     }
