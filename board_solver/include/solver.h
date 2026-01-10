@@ -217,6 +217,54 @@ private:
     uint8_t mrv_state[BOARD_SIZE];    // snapshot of MRV before any choice at this depth
   };
 
+private:
+  bool backtrack_MVR(uint8_t idx)
+  {
+    if(idx >= BOARD_SIZE)
+    {
+      return true;
+    }
+    auto loc = static_cast<uint8_t>(MRV_view[idx] - &MRV[0]);
+
+    while(*MRV_view[idx])
+    {
+      (*MRV_view[idx])--;
+      int8_t s = __builtin_ctz(stack[loc]);
+
+      uint16_t SHF = 1 << s;
+      uint16_t NSHF = ~SHF;
+
+      stack[loc] &= NSHF;
+
+      board[loc] = s;
+
+      uint16_t stack_copy[BOARD_SIZE];
+      uint8_t MRV_copy[BOARD_SIZE];
+      memcpy(&stack_copy, &stack, sizeof(stack));
+      memcpy(&MRV_copy, &MRV, sizeof(MRV));
+
+      update_option(loc, SHF, NSHF);
+
+      if(!check_scan_and_swap(idx + 1))
+      {
+        goto backtrack;
+      }
+
+      if(backtrack_MVR(idx + 1))
+      {
+        return true;
+      }
+
+    backtrack:
+      board[loc] = -1;
+      /// same as the prev memcpy
+      memcpy(&stack, &stack_copy, sizeof(stack));
+      memcpy(&MRV, &MRV_copy, sizeof(MRV));
+      ///
+    }
+    return false;
+  }
+  /*
   bool backtrack_MVR(uint idx)
   {
     Frame frames[BOARD_SIZE];
@@ -296,6 +344,7 @@ private:
 
     } // while (true)
   }
+  */
 
   [[nodiscard]] bool check_scan_and_swap(uint8_t beg)
   {
