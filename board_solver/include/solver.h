@@ -133,7 +133,6 @@ private: // custom data container
   {
     uint16_t stack;
     int8_t MVR;
-    uint8_t LOC;
     bool operator<(const data &other) const
     {
       return MVR < other.MVR;
@@ -170,7 +169,6 @@ public:
     }
     for(i = 0; i < BOARD_SIZE; ++i)
     {
-      stack_data[i].LOC = i;
       if(board[i] >= 0)
       {
         uint16_t SHF = 1 << board[i];
@@ -251,7 +249,7 @@ private:
     {
       return true;
     }
-    uint8_t loc = stack[idx]->LOC;
+    auto loc = static_cast<uint8_t>(stack[idx] - &stack_data[0]);
 
     while(stack[idx]->MVR)
     {
@@ -273,7 +271,7 @@ private:
         // UPDATE:
         //// according to valgrind this takes < 1% of CPU time
         //// therefore its not a bottleneck
-        std::array<data, 81> stack_copy;
+        data stack_copy[BOARD_SIZE];
         memcpy(&stack_copy, &stack_data, sizeof(stack_data));
         //// so its actually very efficient
 
