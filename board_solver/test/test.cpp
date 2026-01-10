@@ -264,7 +264,117 @@ std::vector<std::vector<std::vector<char>>> boards_gtp = { // testcase 0
     { '.', '9', '.', '.', '.', '.', '4', '.', '.' } }
 };
 
-void test_n_times(size_t board_numb, bool prints)
+void test_n_times_no_halt(size_t board_numb, bool prints)
+{
+
+  /////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////
+  ///////////                                                     /////////
+  ///////////        10k call TEST CASE STARTS                    /////////
+  ///////////                                                     /////////
+  /////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////
+
+  if(board_numb >= boards_gtp.size())
+  {
+    std::cout << "bruh board_numb inside of test_commulative is > than "
+                 "vect size";
+    return;
+  }
+  auto board_sel = boards_gtp[board_numb];
+  Solution solver;
+
+  if(prints)
+  {
+    // Print input board
+    std::cout << "input Sudoku in test_n_times for board selected is # " << board_numb << " \n";
+    for(int x = 0; x < 9; x++)
+    {
+      for(int y = 0; y < 9; y++)
+      {
+        std::cout << board_sel[x][y] << " ";
+        if(y == 2 || y == 5)
+          std::cout << "  ";
+      }
+      std::cout << "\n";
+      if(x == 2 || x == 5)
+        std::cout << "\n";
+    }
+    std::cout << '\n';
+  }
+
+  constexpr int iterations = 10'000;
+  auto total_duration_ns = std::chrono::nanoseconds(0);
+  auto total_duration_micro = std::chrono::microseconds(0);
+  auto start = std::chrono::high_resolution_clock::now();
+
+  for(int i = 0; i < iterations; ++i)
+  {
+    auto board = board_sel;
+    solver.solveSudoku(board);
+  }
+
+  auto stop = std::chrono::high_resolution_clock::now();
+  total_duration_ns += stop - start;
+  total_duration_micro += std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+  // outside loop so we can print it
+  solver.solveSudoku(board_sel);
+
+  auto average_duration_ns = total_duration_ns / iterations;
+  auto average_duration_micro = total_duration_micro / iterations;
+  auto average_duration_milli = total_duration_micro / iterations;
+  std::cout << "Average Execution Time of the " << iterations << " iterations is : \n"
+            << "\t " << std::chrono::duration_cast<std::chrono::nanoseconds>(average_duration_ns).count() << " ns\n"
+            << "\t " << std::chrono::duration_cast<std::chrono::microseconds>(average_duration_micro).count() << " μs\n";
+  std::cout << "\033[1;32m"
+            << "\t" << std::chrono::duration_cast<std::chrono::milliseconds>(average_duration_milli).count() << " ms\n"
+            << "\033[0m";
+
+  if(prints)
+  {
+    // print output board
+    std::cout << "OUTPUT Sudoku in test_n_times for board selected is # " << board_numb << " \n";
+    for(int x = 0; x < 9; x++)
+    {
+      for(int y = 0; y < 9; y++)
+      {
+        std::cout << board_sel[x][y] << " ";
+        if(y == 2 || y == 5)
+          std::cout << "  ";
+      }
+      std::cout << "\n";
+      if(x == 2 || x == 5)
+        std::cout << "\n";
+    }
+    std::cout << '\n';
+  }
+
+  // validate the outpout for correctness
+  if(isValidSudoku(board_sel))
+  {
+    std::cout << "\033[1;32m PROPERLY SOLVED THE boards_gtp[" << board_numb
+              << "]\n"
+                 "\033[0m";
+  }
+  else
+  {
+    std::cout << "\033[1;31m DIDN'T SOLVE THE boards_gtp[" << board_numb << "] \n \033[0m";
+  }
+
+  /////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////
+  ///////////                                                     /////////
+  ///////////        10k call TEST CASE ENDS                      /////////
+  ///////////                                                     /////////
+  /////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////
+
+  return;
+}
+
+void test_n_times_with_average_exec_time(size_t board_numb, bool prints)
 {
 
   /////////////////////////////////////////////////////////////////////////
@@ -570,7 +680,8 @@ void test_individual(size_t test_num, bool prints)
 int main()
 {
   // test_individual(7, true);
-  test_n_times(7, false);
+  test_n_times_with_average_exec_time(7, false);
+  // test_n_times_no_halt(10, false);
   std::cout << "\033[1;31m "
                "\n\n[----------------------------------------------------------"
                "--------------------------"

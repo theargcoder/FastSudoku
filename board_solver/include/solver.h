@@ -129,25 +129,17 @@ private:
   PreComputed pre_computed{};
 
 private: // custom data container
-  struct __attribute__((packed)) data
-  {
-    uint16_t stack;
-    int8_t MVR;
-    bool operator<(const data &other) const
-    {
-      return MVR < other.MVR;
-    }
-  };
+  uint16_t stack[BOARD_SIZE];
+  uint8_t MRV[BOARD_SIZE];
 
 private: // holders
   int8_t board[BOARD_SIZE];
-  data stack_data[BOARD_SIZE];
   uint16_t row_m[ROW_SIZE];
   uint16_t col_m[ROW_SIZE];
   uint16_t box_m[ROW_SIZE];
 
-private: // pointers to stack_data to suffle arround and sort
-  data *stack[BOARD_SIZE];
+private: // pointers to stack to suffle arround and sort
+  uint8_t *MRV_view[BOARD_SIZE];
 
 public:
   void solveSudoku(std::vector<std::vector<char>> &sudoku)
@@ -162,8 +154,8 @@ public:
       for(int x = 0; x < ROW_SIZE; ++x)
       {
         board[i] = sudoku[y][x] - '1';
-        stack_data[i].stack = 0b0000000111111111;
-        stack_data[i].MVR = ROW_SIZE;
+        stack[i] = 0b0000000111111111;
+        MRV[i] = ROW_SIZE;
         i++;
       }
     }
@@ -173,7 +165,7 @@ public:
       {
         uint16_t SHF = 1 << board[i];
         uint16_t NSHF = ~SHF;
-        stack_data[i].stack = SHF;
+        stack[i] = SHF;
 
         // TURN OFF
         row_m[ROW[i]] &= NSHF;
@@ -181,8 +173,8 @@ public:
         box_m[BOX[i]] &= NSHF;
         //
 
-        stack_data[i].MVR = 1;
-        hash += stack_data[i].MVR;
+        MRV[i] = 1;
+        hash += MRV[i];
 
         update_option(i, SHF, NSHF);
       }
@@ -193,15 +185,15 @@ public:
       hash = 0;
       for(i = 0; i < BOARD_SIZE; ++i)
       {
-        if(stack_data[i].MVR == 1)
+        if(MRV[i] == 1)
         {
-          board[i] = __builtin_ctz(stack_data[i].stack);
+          board[i] = __builtin_ctz(stack[i]);
 
           uint16_t SHF = 1 << board[i];
           uint16_t NSHF = ~SHF;
           update_option(i, SHF, NSHF);
 
-          stack_data[i].stack = SHF;
+          stack[i] = SHF;
 
           // TURN OFF
           row_m[ROW[i]] &= NSHF;
@@ -209,22 +201,21 @@ public:
           box_m[BOX[i]] &= NSHF;
           //
         }
-        hash += stack_data[i].MVR;
+        hash += MRV[i];
       }
     }
     for(i = 0; i < BOARD_SIZE; ++i)
     {
-      stack_data[i].stack = stack_data[i].stack;
-      stack_data[i].MVR = __builtin_popcount(stack_data[i].stack);
-      stack[i] = &stack_data[i];
+      MRV[i] = __builtin_popcount(stack[i]);
+      MRV_view[i] = &MRV[i];
     }
 
     //// THIS TAKES FUCKING 8.84% of CPU TIME WTF
-    std::sort(&stack[0], &stack[BOARD_SIZE], [](const data *a, const data *b) { return a->MVR < b->MVR; });
+    std::sort(&MRV_view[0], &MRV_view[BOARD_SIZE], [](const uint8_t *a, const uint8_t *b) { return *a < *b; });
     ////
 
-    auto low_bd = std::lower_bound(&stack[0], &stack[BOARD_SIZE], 2, [](const data *d, int8_t e) { return d->MVR < e; });
-    uint8_t st = std::distance(&stack[0], low_bd);
+    auto low_bd = std::lower_bound(&MRV_view[0], &MRV_view[BOARD_SIZE], 2, [](const uint8_t *d, int8_t e) { return *d < e; });
+    uint8_t st = std::distance(&MRV_view[0], low_bd);
 
     if(!backtrack_MVR(st))
     {
@@ -249,17 +240,17 @@ private:
     {
       return true;
     }
-    auto loc = static_cast<uint8_t>(stack[idx] - &stack_data[0]);
+    auto loc = static_cast<uint8_t>(MRV_view[idx] - &MRV[0]);
 
-    while(stack[idx]->MVR)
+    while(*MRV_view[idx])
     {
-      stack[idx]->MVR--;
-      int8_t s = __builtin_ctz(stack[idx]->stack);
+      (*MRV_view[idx])--;
+      int8_t s = __builtin_ctz(stack[loc]);
 
       uint16_t SHF = 1 << s;
       uint16_t NSHF = ~SHF;
 
-      stack[idx]->stack &= NSHF;
+      stack[loc] &= NSHF;
 
       if(!(row_m[ROW[loc]] & SHF) && !(col_m[COL[loc]] & SHF) && !(box_m[BOX[loc]] & SHF))
       {
@@ -271,19 +262,17 @@ private:
         // UPDATE:
         //// according to valgrind this takes < 1% of CPU time
         //// therefore its not a bottleneck
-        data stack_copy[BOARD_SIZE];
-        memcpy(&stack_copy, &stack_data, sizeof(stack_data));
+        uint16_t stack_copy[BOARD_SIZE];
+        uint8_t MRV_copy[BOARD_SIZE];
+        memcpy(&stack_copy, &stack, sizeof(stack));
+        memcpy(&MRV_copy, &MRV, sizeof(MRV));
         //// so its actually very efficient
 
         /// this function still takes 20.2% of CPU time
         update_option(loc, SHF, NSHF);
         ///
 
-        /// and this takes 32.74 % of CPU time
-        // std::partial_sort(stack.begin() + idx + 1, stack.begin() + idx + 2, stack.end(),
-        //                  [](const data *a, const data *b) { return a->MVR < b->MVR; });
-        ///
-        if(!check_scan_and_swap(&stack[idx + 1], &stack[BOARD_SIZE]))
+        if(!check_scan_and_swap(idx + 1))
         {
           goto backtrack;
         }
@@ -297,21 +286,22 @@ private:
         box_m[BOX[loc]] &= NSHF;
         board[loc] = -1;
         /// same as the prev memcpy
-        memcpy(&stack_data, &stack_copy, sizeof(stack_data));
+        memcpy(&stack, &stack_copy, sizeof(stack));
+        memcpy(&MRV, &MRV_copy, sizeof(MRV));
         ///
       }
     }
     return false;
   }
 
-  [[nodiscard]] inline bool check_scan_and_swap(data **beg, data **end)
+  [[nodiscard]] bool check_scan_and_swap(uint8_t beg)
   {
     auto best_it = beg;
     int8_t min_mvr = INT8_MAX;
 
-    for(auto it = beg; it != end; ++it)
+    for(auto i = beg; i < BOARD_SIZE; ++i)
     {
-      int8_t val = (*it)->MVR;
+      int8_t val = *MRV_view[i];
 
       if(val == 0)
       {
@@ -321,28 +311,28 @@ private:
       if(val < min_mvr)
       {
         min_mvr = val;
-        best_it = it;
+        best_it = i;
       }
     }
 
     if(best_it != beg)
     {
-      data *tmp = *best_it;
-      *best_it = *beg;
-      *beg = tmp;
+      uint8_t *tmp = MRV_view[best_it];
+      MRV_view[best_it] = MRV_view[beg];
+      MRV_view[beg] = tmp;
     }
 
     return true;
   }
 
-  inline void update_option(const uint8_t i, const uint16_t SHF, const uint16_t NSHF)
+  void update_option(const uint8_t i, const uint16_t SHF, const uint16_t NSHF)
   {
     for(const auto &j : pre_computed.PEERS[i])
     {
-      if(stack_data[j].stack & SHF)
+      if(stack[j] & SHF)
       {
-        stack_data[j].stack &= NSHF;
-        --stack_data[j].MVR;
+        stack[j] &= NSHF;
+        --MRV[j];
       }
     }
   }
