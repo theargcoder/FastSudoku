@@ -42,31 +42,91 @@
 
  ************************************************/
 
+/*
+
+ {
+ //0
+   {
+      {1,2,3,4,5,6,7,8
+      9,18,27,36,45,54,63,72
+      10,11,19,20},
+      {0,2,3,4,5,6,7,8
+      10,19,28,37,46,55,64,73
+      9,11,18,20}
+
+   }
+ }
+
+
+*/
+
 class Solution
 {
 private:
-  constexpr static auto BOARD_SIZE = 81;
-  constexpr static auto ROW_SIZE = 9;
+  const constexpr static auto BOARD_SIZE = 81;
+  const constexpr static auto PEERS_SIZE = 20;
+  const constexpr static auto ROW_SIZE = 9;
 
-  constexpr static const std::array<int8_t, BOARD_SIZE> IDX
-      = { 0,  0,  0,  0,  0,  0,  0,  0,  0,  9,  9,  9,  9,  9,  9,  9,  9,  9,  18, 18, 18, 18, 18, 18, 18, 18, 18,
-          27, 27, 27, 27, 27, 27, 27, 27, 27, 36, 36, 36, 36, 36, 36, 36, 36, 36, 45, 45, 45, 45, 45, 45, 45, 45, 45,
-          54, 54, 54, 54, 54, 54, 54, 54, 54, 63, 63, 63, 63, 63, 63, 63, 63, 63, 72, 72, 72, 72, 72, 72, 72, 72, 72 };
-
-  constexpr static const std::array<int8_t, BOARD_SIZE> IDG
-      = { 0,  0,  0,  3,  3,  3,  6,  6,  6,  0,  0,  0,  3,  3,  3,  6,  6,  6,  0,  0,  0,  3,  3,  3,  6,  6,  6,
-          27, 27, 27, 30, 30, 30, 33, 33, 33, 27, 27, 27, 30, 30, 30, 33, 33, 33, 27, 27, 27, 30, 30, 30, 33, 33, 33,
-          54, 54, 54, 57, 57, 57, 60, 60, 60, 54, 54, 54, 57, 57, 57, 60, 60, 60, 54, 54, 54, 57, 57, 57, 60, 60, 60 };
-
-  constexpr static const std::array<int8_t, BOARD_SIZE> ROW
+  constexpr static const int8_t ROW[BOARD_SIZE]
       = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
           4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
-  constexpr static const std::array<int8_t, BOARD_SIZE> COL
+  constexpr static const int8_t COL[BOARD_SIZE]
       = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4,
           5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8 };
-  constexpr static const std::array<int8_t, BOARD_SIZE> BOX
+  constexpr static const int8_t BOX[BOARD_SIZE]
       = { 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 3, 3, 3, 4, 4,
           4, 5, 5, 5, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8, 6, 6, 6, 7, 7, 7, 8, 8, 8, 6, 6, 6, 7, 7, 7, 8, 8, 8 };
+
+private:
+  struct PreComputed
+  {
+  public:
+    uint8_t PEERS[BOARD_SIZE][PEERS_SIZE];
+
+    consteval PreComputed()
+    {
+      init_peers();
+    }
+
+  private:
+    // Consteval ensures this function is executed ONLY at compile time
+    consteval void init_peers()
+    {
+      for(int i = 0; i < BOARD_SIZE; ++i)
+      {
+        int count = 0;
+        int r = i / ROW_SIZE;
+        int c = i % ROW_SIZE;
+        int br = (r / 3) * 3; // Box row start
+        int bc = (c / 3) * 3; // Box column start
+
+        for(int x = 0; x < BOARD_SIZE; ++x)
+        {
+          if(x == i)
+          {
+            continue;
+          }
+
+          int xr = x / ROW_SIZE;
+          int xc = x % ROW_SIZE;
+
+          // Check Row, Column, or 3x3 Box
+          bool sameRow = (r == xr);
+          bool sameCol = (c == xc);
+          bool sameBox = (xr >= br && xr < br + 3 && xc >= bc && xc < bc + 3);
+
+          if(sameRow || sameCol || sameBox)
+          {
+            // Safety check: count should never exceed 19 (indices 0-19)
+            PEERS[i][count++] = static_cast<uint8_t>(x);
+          }
+        }
+      }
+    }
+  };
+
+private:
+  PreComputed pre_computed{};
 
 private: // custom data container
   struct __attribute__((packed)) data
@@ -81,24 +141,26 @@ private: // custom data container
   };
 
 private: // holders
-  std::array<int8_t, BOARD_SIZE> board;
-  std::array<data, BOARD_SIZE> stack_data;
-  std::array<uint16_t, ROW_SIZE> row_m, col_m, box_m;
+  int8_t board[BOARD_SIZE];
+  data stack_data[BOARD_SIZE];
+  uint16_t row_m[ROW_SIZE];
+  uint16_t col_m[ROW_SIZE];
+  uint16_t box_m[ROW_SIZE];
 
 private: // pointers to stack_data to suffle arround and sort
-  std::array<data *, BOARD_SIZE> stack;
+  data *stack[BOARD_SIZE];
 
 public:
   void solveSudoku(std::vector<std::vector<char>> &sudoku)
   {
     long prevhash = 0, hash = 0;
     int i = 0;
-    for(int y = 0; y < ROW_SIZE; y++)
+    for(int y = 0; y < ROW_SIZE; ++y)
     {
       row_m[y] = 0;
       col_m[y] = 0;
       box_m[y] = 0;
-      for(int x = 0; x < ROW_SIZE; x++)
+      for(int x = 0; x < ROW_SIZE; ++x)
       {
         board[i] = sudoku[y][x] - '1';
         stack_data[i].stack = 0b0000000111111111;
@@ -106,7 +168,7 @@ public:
         i++;
       }
     }
-    for(i = 0; i < BOARD_SIZE; i++)
+    for(i = 0; i < BOARD_SIZE; ++i)
     {
       stack_data[i].LOC = i;
       if(board[i] >= 0)
@@ -131,7 +193,7 @@ public:
     {
       prevhash = hash;
       hash = 0;
-      for(i = 0; i < BOARD_SIZE; i++)
+      for(i = 0; i < BOARD_SIZE; ++i)
       {
         if(stack_data[i].MVR == 1)
         {
@@ -152,7 +214,7 @@ public:
         hash += stack_data[i].MVR;
       }
     }
-    for(i = 0; i < BOARD_SIZE; i++)
+    for(i = 0; i < BOARD_SIZE; ++i)
     {
       stack_data[i].stack = stack_data[i].stack;
       stack_data[i].MVR = __builtin_popcount(stack_data[i].stack);
@@ -160,11 +222,11 @@ public:
     }
 
     //// THIS TAKES FUCKING 8.84% of CPU TIME WTF
-    std::sort(stack.begin(), stack.end(), [](const data *a, const data *b) { return a->MVR < b->MVR; });
+    std::sort(&stack[0], &stack[BOARD_SIZE], [](const data *a, const data *b) { return a->MVR < b->MVR; });
     ////
 
-    auto low_bd = std::lower_bound(stack.begin(), stack.end(), 2, [](const data *d, int8_t e) { return d->MVR < e; });
-    uint8_t st = std::distance(stack.begin(), low_bd);
+    auto low_bd = std::lower_bound(&stack[0], &stack[BOARD_SIZE], 2, [](const data *d, int8_t e) { return d->MVR < e; });
+    uint8_t st = std::distance(&stack[0], low_bd);
 
     if(!backtrack_MVR(st))
     {
@@ -172,9 +234,9 @@ public:
     }
 
     i = 0;
-    for(int y = 0; y < ROW_SIZE; y++)
+    for(int y = 0; y < ROW_SIZE; ++y)
     {
-      for(int x = 0; x < ROW_SIZE; x++)
+      for(int x = 0; x < ROW_SIZE; ++x)
       {
         sudoku[y][x] = board[i] + '1';
         i++;
@@ -220,12 +282,18 @@ private:
         ///
 
         /// and this takes 32.74 % of CPU time
-        std::partial_sort(stack.begin() + idx + 1, stack.begin() + idx + 2, stack.end(),
-                          [](const data *a, const data *b) { return a->MVR < b->MVR; });
+        // std::partial_sort(stack.begin() + idx + 1, stack.begin() + idx + 2, stack.end(),
+        //                  [](const data *a, const data *b) { return a->MVR < b->MVR; });
         ///
+        if(!check_scan_and_swap(&stack[idx + 1], &stack[BOARD_SIZE]))
+        {
+          goto backtrack;
+        }
 
         if(backtrack_MVR(idx + 1))
           return true;
+
+      backtrack:
         row_m[ROW[loc]] &= NSHF;
         col_m[COL[loc]] &= NSHF;
         box_m[BOX[loc]] &= NSHF;
@@ -238,35 +306,45 @@ private:
     return false;
   }
 
-  inline void update_option(const int &i, const uint16_t &SHF, const uint16_t &NSHF)
+  [[nodiscard]] inline bool check_scan_and_swap(data **beg, data **end)
   {
-    static int j, k;
+    auto best_it = beg;
+    int8_t min_mvr = INT8_MAX;
 
-    for(j = IDX[i]; j < IDX[i] + ROW_SIZE; j++)
+    for(auto it = beg; it != end; ++it)
+    {
+      int8_t val = (*it)->MVR;
+
+      if(val == 0)
+      {
+        return false; // dead end
+      }
+
+      if(val < min_mvr)
+      {
+        min_mvr = val;
+        best_it = it;
+      }
+    }
+
+    if(best_it != beg)
+    {
+      data *tmp = *best_it;
+      *best_it = *beg;
+      *beg = tmp;
+    }
+
+    return true;
+  }
+
+  inline void update_option(const uint8_t i, const uint16_t SHF, const uint16_t NSHF)
+  {
+    for(const auto &j : pre_computed.PEERS[i])
     {
       if(stack_data[j].stack & SHF)
       {
         stack_data[j].stack &= NSHF;
-        stack_data[j].MVR--;
-      }
-    }
-    for(j = i - IDX[i]; j < BOARD_SIZE; j += ROW_SIZE)
-    {
-      if(stack_data[j].stack & SHF)
-      {
-        stack_data[j].stack &= NSHF;
-        stack_data[j].MVR--;
-      }
-    }
-    for(j = IDG[i]; j < IDG[i] + 27; j += ROW_SIZE)
-    {
-      for(k = j; k < j + 3; k++)
-      {
-        if(stack_data[k].stack & SHF)
-        {
-          stack_data[k].stack &= NSHF;
-          stack_data[k].MVR--;
-        }
+        --stack_data[j].MVR;
       }
     }
   }

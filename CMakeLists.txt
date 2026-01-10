@@ -28,6 +28,25 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     -fno-omit-frame-pointer)
 endif()
 
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  add_compile_options(
+    -Ofast
+    -fprefetch-loop-arrays
+    -funroll-loops
+    -march=broadwell
+    -static-libstdc++
+    -Wall
+    -Wshadow
+    -Wshadow=compatible-local
+    -Wshadow=local
+    -Werror=shadow
+    -Wnull-dereference
+    -Wduplicated-cond
+    -Wduplicated-branches
+    -Wlogical-op
+    -fno-omit-frame-pointer)
+endif()
+
 # Header-only library
 add_library(FastSudoku INTERFACE)
 target_include_directories(FastSudoku INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
