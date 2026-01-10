@@ -1,6 +1,4 @@
 #include <algorithm>
-#include <array>
-#include <bits/floatn-common.h>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
@@ -134,9 +132,6 @@ private: // custom data container
 
 private: // holders
   int8_t board[BOARD_SIZE];
-  uint16_t row_m[ROW_SIZE];
-  uint16_t col_m[ROW_SIZE];
-  uint16_t box_m[ROW_SIZE];
 
 private: // pointers to stack to suffle arround and sort
   uint8_t *MRV_view[BOARD_SIZE];
@@ -148,9 +143,6 @@ public:
     int i = 0;
     for(int y = 0; y < ROW_SIZE; ++y)
     {
-      row_m[y] = 0;
-      col_m[y] = 0;
-      box_m[y] = 0;
       for(int x = 0; x < ROW_SIZE; ++x)
       {
         board[i] = sudoku[y][x] - '1';
@@ -166,12 +158,6 @@ public:
         uint16_t SHF = 1 << board[i];
         uint16_t NSHF = ~SHF;
         stack[i] = SHF;
-
-        // TURN OFF
-        row_m[ROW[i]] &= NSHF;
-        col_m[COL[i]] &= NSHF;
-        box_m[BOX[i]] &= NSHF;
-        //
 
         MRV[i] = 1;
         hash += MRV[i];
@@ -194,12 +180,6 @@ public:
           update_option(i, SHF, NSHF);
 
           stack[i] = SHF;
-
-          // TURN OFF
-          row_m[ROW[i]] &= NSHF;
-          col_m[COL[i]] &= NSHF;
-          box_m[BOX[i]] &= NSHF;
-          //
         }
         hash += MRV[i];
       }
@@ -215,12 +195,9 @@ public:
     ////
 
     auto low_bd = std::lower_bound(&MRV_view[0], &MRV_view[BOARD_SIZE], 2, [](const uint8_t *d, int8_t e) { return *d < e; });
-    uint8_t st = std::distance(&MRV_view[0], low_bd);
+    uint32_t st = std::distance(&MRV_view[0], low_bd);
 
-    if(!backtrack_MVR(st))
-    {
-      return;
-    }
+    backtrack_MVR(st);
 
     i = 0;
     for(int y = 0; y < ROW_SIZE; ++y)
@@ -234,64 +211,90 @@ public:
   }
 
 private:
-  bool backtrack_MVR(uint8_t idx)
+  struct Frame
   {
-    if(idx >= BOARD_SIZE)
+    uint16_t stack_state[BOARD_SIZE]; // snapshot of stack before any choice at this depth
+    uint8_t mrv_state[BOARD_SIZE];    // snapshot of MRV before any choice at this depth
+  };
+
+  bool backtrack_MVR(uint idx)
+  {
+    Frame frames[BOARD_SIZE];
+    bool started[BOARD_SIZE];
+    std::memset(&started[0], 0, sizeof(started));
+
+    while(true)
     {
-      return true;
-    }
-    auto loc = static_cast<uint8_t>(MRV_view[idx] - &MRV[0]);
-
-    while(*MRV_view[idx])
-    {
-      (*MRV_view[idx])--;
-      int8_t s = __builtin_ctz(stack[loc]);
-
-      uint16_t SHF = 1 << s;
-      uint16_t NSHF = ~SHF;
-
-      stack[loc] &= NSHF;
-
-      if(!(row_m[ROW[loc]] & SHF) && !(col_m[COL[loc]] & SHF) && !(box_m[BOX[loc]] & SHF))
+      if(idx >= BOARD_SIZE)
       {
-        board[loc] = s;
-        row_m[ROW[loc]] |= SHF;
-        col_m[COL[loc]] |= SHF;
-        box_m[BOX[loc]] |= SHF;
+        return true;
+      }
 
-        // UPDATE:
-        //// according to valgrind this takes < 1% of CPU time
-        //// therefore its not a bottleneck
-        uint16_t stack_copy[BOARD_SIZE];
-        uint8_t MRV_copy[BOARD_SIZE];
-        memcpy(&stack_copy, &stack, sizeof(stack));
-        memcpy(&MRV_copy, &MRV, sizeof(MRV));
-        //// so its actually very efficient
+      uint8_t loc = static_cast<uint8_t>(MRV_view[idx] - &MRV[0]);
 
-        /// this function still takes 20.2% of CPU time
+      if(!started[idx])
+      {
+        memcpy(frames[idx].stack_state, stack, sizeof(stack));
+        memcpy(frames[idx].mrv_state, MRV, sizeof(MRV));
+        started[idx] = true;
+      }
+
+      bool went_deeper = false;
+
+      while(frames[idx].mrv_state[loc])
+      {
+        frames[idx].mrv_state[loc]--;
+        const auto s = static_cast<uint8_t>(__builtin_ctz(frames[idx].stack_state[loc]));
+
+        const auto SHF = static_cast<uint16_t>(1U << s);
+        const auto NSHF = static_cast<uint16_t>(~SHF);
+
+        frames[idx].stack_state[loc] &= NSHF;
+
+        stack[loc] &= NSHF;
+
+        board[loc] = static_cast<int8_t>(s);
+
         update_option(loc, SHF, NSHF);
-        ///
 
         if(!check_scan_and_swap(idx + 1))
         {
-          goto backtrack;
+          board[loc] = -1;
+
+          memcpy(stack, frames[idx].stack_state, sizeof(stack));
+          memcpy(MRV, frames[idx].mrv_state, sizeof(MRV));
+
+          continue;
         }
 
-        if(backtrack_MVR(idx + 1))
-          return true;
+        idx++;
+        went_deeper = true;
+        break;
 
-      backtrack:
-        row_m[ROW[loc]] &= NSHF;
-        col_m[COL[loc]] &= NSHF;
-        box_m[BOX[loc]] &= NSHF;
-        board[loc] = -1;
-        /// same as the prev memcpy
-        memcpy(&stack, &stack_copy, sizeof(stack));
-        memcpy(&MRV, &MRV_copy, sizeof(MRV));
-        ///
+      } // while(frames[idx].remaining)
+
+      if(went_deeper)
+      {
+        continue; // handle deeper frame in next iteration
       }
-    }
-    return false;
+
+      // no remaining candidates for this depth: backtrack
+      started[idx] = false; // reset this frame so if we return later it re-initializes
+
+      // if we are at root and exhausted choices -> failure
+      if(idx == 0)
+      {
+        return false;
+      }
+
+      idx--;
+
+      board[loc] = -1;
+
+      memcpy(stack, frames[idx].stack_state, sizeof(stack));
+      memcpy(MRV, frames[idx].mrv_state, sizeof(MRV));
+
+    } // while (true)
   }
 
   [[nodiscard]] bool check_scan_and_swap(uint8_t beg)
