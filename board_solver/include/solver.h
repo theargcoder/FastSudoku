@@ -152,7 +152,7 @@ public:
         MRV[i] = 1;
         hash += MRV[i];
 
-        update_option<false>(i, SHF);
+        update_option(i, SHF);
       }
     }
     while(prevhash != hash)
@@ -166,7 +166,7 @@ public:
           board[i] = __builtin_ctz(stack[i]);
 
           uint16_t SHF = 1 << board[i];
-          update_option<false>(i, SHF);
+          update_option(i, SHF);
 
           stack[i] = SHF;
         }
@@ -179,14 +179,12 @@ public:
       MRV_view[i] = &MRV[i];
     }
 
-    //// THIS TAKES FUCKING 8.84% of CPU TIME WTF
     std::sort(&MRV_view[0], &MRV_view[BOARD_SIZE], [](const auto *a, const auto *b) { return *a < *b; });
-    ////
 
     auto low_bd = std::lower_bound(&MRV_view[0], &MRV_view[BOARD_SIZE], 2, [](const auto *d, auto e) { return *d < e; });
     uint8_t st = std::distance(&MRV_view[0], low_bd);
 
-    std::memset(&undo[0], false, sizeof(undo));
+    std::memset(undo, false, sizeof(undo));
 
     backtrack_MVR(st);
 
@@ -205,46 +203,32 @@ private:
   bool backtrack_MVR(uint8_t idx)
   {
     if(idx >= BOARD_SIZE)
-    {
       return true;
-    }
+
     auto loc = static_cast<uint8_t>(MRV_view[idx] - &MRV[0]);
 
-    while(*MRV_view[idx])
+    uint16_t candidates = stack[loc];
+
+    while(candidates)
     {
-      (*MRV_view[idx])--;
-      int8_t s = __builtin_ctz(stack[loc]);
-
+      int8_t s = __builtin_ctz(candidates);
       uint16_t SHF = 1U << s;
-
-      stack[loc] &= ~SHF;
+      candidates &= ~SHF; // Remove from local loop tracker
 
       board[loc] = s;
 
-      uint16_t stack_copy[BOARD_SIZE];
-      uint8_t MRV_copy[BOARD_SIZE];
-      std::memcpy(&stack_copy, &stack, sizeof(stack));
-      std::memcpy(&MRV_copy, &MRV, sizeof(MRV));
+      update_option_undo(loc, SHF);
 
-      update_option<true>(loc, SHF);
-
-      if(!check_scan_and_swap(idx + 1))
+      // 2. Pivot & Recurse
+      if(check_scan_and_swap(idx + 1))
       {
-        undo_option(loc, SHF);
-        continue;
-        // goto backtrack;
+        if(backtrack_MVR(idx + 1))
+          return true;
       }
 
-      if(backtrack_MVR(idx + 1))
-      {
-        return true;
-      }
-
-      // backtrack:
-      //  undo_option(loc, SHF);
-      /// same as the prev memcpy
-      std::memmove(&stack, &stack_copy, sizeof(stack));
-      std::memmove(&MRV, &MRV_copy, sizeof(MRV));
+      undo_option(loc, SHF);
+      std::memset(&undo[loc][0], false, PEERS_SIZE);
+      board[loc] = -1;
     }
     return false;
   }
@@ -279,60 +263,49 @@ private:
     return true;
   }
 
-  template <bool UNDO>
   void update_option(const uint8_t i, const uint16_t SHF)
   {
-    if constexpr(UNDO)
+    for(const auto &j : pre_computed.PEERS[i])
     {
-      int k = 0;
-      for(const auto &j : pre_computed.PEERS[i])
+      if(stack[j] & SHF)
       {
-        if(stack[j] & SHF)
-        {
-          stack[j] &= ~SHF;
-          MRV[j] = __builtin_popcount(stack[j]);
-          undo[i][k] = true;
-        }
-        ++k;
+        stack[j] &= ~SHF;
+        MRV[j] = __builtin_popcount(stack[j]);
       }
     }
-    else
+  }
+
+  void update_option_undo(const uint8_t i, const uint16_t SHF)
+  {
+    const auto &peers = pre_computed.PEERS[i];
+    for(int j = 0; j < PEERS_SIZE; j++)
     {
-      for(const auto &j : pre_computed.PEERS[i])
+      if(stack[peers[j]] & SHF)
       {
-        if(stack[j] & SHF)
-        {
-          stack[j] &= ~SHF;
-          MRV[j] = __builtin_popcount(stack[j]);
-        }
+        stack[peers[j]] &= ~SHF;
+        MRV[peers[j]] = __builtin_popcount(stack[peers[j]]);
+        undo[i][j] = true;
       }
     }
   }
 
   void undo_option(const uint8_t i, const uint16_t SHF)
   {
-    int k = 0;
-    for(const auto &j : pre_computed.PEERS[i])
+    const auto &peers = pre_computed.PEERS[i];
+    for(int j = 0; j < PEERS_SIZE; j++)
     {
-      if(undo[i][k])
+      if(undo[i][j])
       {
-        stack[j] |= SHF;
-        MRV[j] = __builtin_popcount(stack[j]);
-        undo[i][k] = false;
+        stack[peers[j]] |= SHF;
+        MRV[peers[j]] = __builtin_popcount(stack[peers[j]]);
       }
-      k++;
     }
   }
 };
 
-/*************************************************************
-*************************************************************
-*************************************************************
-******   ITERATIVE SOLUTION, NO FUNCTION RECURSION   *******
-*************************************************************
-*************************************************************
-*************************************************************/
-
+/////////////////////////////////////////////////////////
+///// ITERATIVE SOLUTION, NO FUNCTION RECURSION     /////
+/////////////////////////////////////////////////////////
 /*
 class Solution
 {
