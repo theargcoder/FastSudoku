@@ -106,14 +106,14 @@ public:
     std::memset(&undo[0], false, sizeof(undo));
 
     int prevhash = 0, hash = 0;
-    int i = 0;
+    uint8_t i = 0;
     int8_t ct;
-    for(int y = 0; y < ROW_SIZE; ++y)
+    for(uint8_t y = 0; y < ROW_SIZE; ++y)
     {
-      for(int x = 0; x < ROW_SIZE; ++x)
+      for(uint8_t x = 0; x < ROW_SIZE; ++x)
       {
         ct = sudoku[y][x] - '1';
-        if(ct >= 0 && ct <= 8)
+        if(ct >= 0 && ct < ROW_SIZE)
         {
           const uint16_t SHF = 1 << ct;
           stack[i] = SHF;
@@ -121,6 +121,7 @@ public:
           update_option(i, SHF);
         }
 
+        stack_view[i] = &stack[i];
         i++;
       }
     }
@@ -140,24 +141,19 @@ public:
       }
     }
 
-    for(i = 0; i < BOARD_SIZE; ++i)
-    {
-      stack_view[i] = &stack[i];
-    }
-
     std::sort(&stack_view[0], &stack_view[BOARD_SIZE], [](const auto *a, const auto *b) { return __builtin_popcount(*a) < __builtin_popcount(*b); });
 
     auto low_bd
-        = std::lower_bound(&stack_view[0], &stack_view[BOARD_SIZE], 2, [](const auto *c, int value) { return __builtin_popcount(*c) < value; });
+        = std::lower_bound(&stack_view[0], &stack_view[BOARD_SIZE], 2, [](const auto *c, uint8_t value) { return __builtin_popcount(*c) < value; });
 
     uint8_t st = std::distance(&stack_view[0], low_bd);
 
     backtrack_MVR(st);
 
     i = 0;
-    for(int y = 0; y < ROW_SIZE; ++y)
+    for(uint8_t y = 0; y < ROW_SIZE; ++y)
     {
-      for(int x = 0; x < ROW_SIZE; ++x)
+      for(uint8_t x = 0; x < ROW_SIZE; ++x)
       {
         sudoku[y][x] = __builtin_ctz(stack[i]) + '1';
         i++;
@@ -175,7 +171,7 @@ private:
 
     auto loc = static_cast<uint8_t>(stack_view[idx] - &stack[0]);
 
-    uint16_t candidates = stack[loc];
+    uint16_t candidates = stack[stack_view[idx] - &stack[0]];
 
     while(candidates)
     {
@@ -183,7 +179,7 @@ private:
       uint16_t SHF = 1U << s;
       candidates &= ~SHF; // Remove from local loop tracker
 
-      update_option_undo(loc, SHF);
+      update_option_undo(stack_view[idx] - &stack[0], SHF);
 
       if(!check_scan_and_swap(idx + 1))
       {
@@ -195,8 +191,8 @@ private:
       }
 
     backtrack:
-      undo_option(loc, SHF);
-      std::memset(&undo[loc][0], false, PEERS_SIZE);
+      undo_option(stack_view[idx] - &stack[0], SHF);
+      std::memset(&undo[stack_view[idx] - &stack[0]][0], false, PEERS_SIZE);
     }
     return false;
   }
