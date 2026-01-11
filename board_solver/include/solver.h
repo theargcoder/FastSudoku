@@ -7,25 +7,18 @@
 
 //////////////////////////////////////////////////
 ///
-/// ATTEMPTING MVR PART 9
+///   Got it Down to 4 μs with recursion,
+///   will try the iterative one as well
 ///
-/// YESIR TARGET of 0 ms is HIT BOI
-///
-/// IDK what I'll try but I'll try something
-///
-/// PD: I rearanged the lower bound and index calculations
-/// AND OMG that made it single digit micro second solution
-///
-/// PD 2: Eliminated the excessive __builtin_popcount calls
-/// and updated MVRs directly before the backtrack is called
-///
-/// PD 3: Eliminated the references in update_option calls
 /**********************************************
  *                                            *
  *  TESTED IN:                                *
- *  Linux macbook-air 6.13.7-arch1-1 #1 SMP   *
- *  PREEMPT_DYNAMIC Thu, 13 Mar 2025          *
- *  18:12:00 +0000 x86_64 GNU/Linux           *
+ *    Linux ARCHbtw 6.18.4-arch1-1 #1 SM      *
+ *    PREEMPT_DYNAMIC                         *
+ *    Fri, 09 Jan 2026 19:43:48 +0000         *
+ *     x86_64 GNU/Linux                       *
+ *  COMPILER:                                 *
+ *     g++ (GCC) 15.2.1 20260103              *
  *                                            *
  **********************************************
 
@@ -34,36 +27,19 @@
      Average execution time per call
      ranged from:
 
-                        [7844  ns , 8421   ns]
+                        [4412  ns , 4833   ns]
 
-                        [7     μs , 7      μs]
+                        [4     μs , 4      μs]
 
  ************************************************/
-
-/*
-
- {
- //0
-   {
-      {1,2,3,4,5,6,7,8
-      9,18,27,36,45,54,63,72
-      10,11,19,20},
-      {0,2,3,4,5,6,7,8
-      10,19,28,37,46,55,64,73
-      9,11,18,20}
-
-   }
- }
-
-
-*/
 
 class Solution
 {
 private:
-  const constexpr static auto BOARD_SIZE = 81;
-  const constexpr static auto PEERS_SIZE = 20;
-  const constexpr static auto ROW_SIZE = 9;
+  const constexpr static uint8_t BOARD_SIZE = 81;
+  const constexpr static uint8_t PEERS_SIZE = 20;
+  const constexpr static uint8_t ROW_SIZE = 9;
+  const constexpr static uint16_t ALL_BITS_ON = 0b0000000111111111;
 
 private:
   struct PreComputed
@@ -118,73 +94,63 @@ private:
 
 private: // custom data container
   uint16_t stack[BOARD_SIZE];
-  uint8_t MRV[BOARD_SIZE];
-
-private: // holders
-  int8_t board[BOARD_SIZE];
 
 private: // pointers to stack to suffle arround and sort
-  uint8_t *MRV_view[BOARD_SIZE];
+  uint16_t *stack_view[BOARD_SIZE];
   bool undo[BOARD_SIZE][PEERS_SIZE];
 
 public:
   void solveSudoku(std::vector<std::vector<char>> &sudoku)
   {
-    long prevhash = 0, hash = 0;
+    std::memset(stack, ALL_BITS_ON, sizeof(stack));
+    std::memset(&undo[0], false, sizeof(undo));
+
+    int prevhash = 0, hash = 0;
     int i = 0;
+    int8_t ct;
     for(int y = 0; y < ROW_SIZE; ++y)
     {
       for(int x = 0; x < ROW_SIZE; ++x)
       {
-        board[i] = sudoku[y][x] - '1';
-        stack[i] = 0b0000000111111111;
-        MRV[i] = ROW_SIZE;
+        ct = sudoku[y][x] - '1';
+        if(ct >= 0 && ct <= 8)
+        {
+          const uint16_t SHF = 1 << ct;
+          stack[i] = SHF;
+
+          update_option(i, SHF);
+        }
+
         i++;
       }
     }
-    for(i = 0; i < BOARD_SIZE; ++i)
-    {
-      if(board[i] >= 0)
-      {
-        uint16_t SHF = 1 << board[i];
-        stack[i] = SHF;
 
-        MRV[i] = 1;
-        hash += MRV[i];
-
-        update_option(i, SHF);
-      }
-    }
     while(prevhash != hash)
     {
       prevhash = hash;
       hash = 0;
       for(i = 0; i < BOARD_SIZE; ++i)
       {
-        if(MRV[i] == 1)
+        const auto mrv = __builtin_popcount(stack[i]);
+        if(mrv == 1)
         {
-          board[i] = __builtin_ctz(stack[i]);
-
-          uint16_t SHF = 1 << board[i];
-          update_option(i, SHF);
-
-          stack[i] = SHF;
+          update_option(i, stack[i]);
         }
-        hash += MRV[i];
+        hash += mrv;
       }
     }
+
     for(i = 0; i < BOARD_SIZE; ++i)
     {
-      MRV[i] = __builtin_popcount(stack[i]);
-      MRV_view[i] = &MRV[i];
+      stack_view[i] = &stack[i];
     }
 
-    std::sort(&MRV_view[0], &MRV_view[BOARD_SIZE], [](const auto *a, const auto *b) { return *a < *b; });
+    std::sort(&stack_view[0], &stack_view[BOARD_SIZE], [](const auto *a, const auto *b) { return __builtin_popcount(*a) < __builtin_popcount(*b); });
 
-    auto low_bd = std::lower_bound(&MRV_view[0], &MRV_view[BOARD_SIZE], 2, [](const auto *d, auto e) { return *d < e; });
-    uint8_t st = std::distance(&MRV_view[0], low_bd);
+    auto low_bd
+        = std::lower_bound(&stack_view[0], &stack_view[BOARD_SIZE], 2, [](const auto *c, int value) { return __builtin_popcount(*c) < value; });
 
-    std::memset(undo, false, sizeof(undo));
+    uint8_t st = std::distance(&stack_view[0], low_bd);
 
     backtrack_MVR(st);
 
@@ -193,7 +159,7 @@ public:
     {
       for(int x = 0; x < ROW_SIZE; ++x)
       {
-        sudoku[y][x] = board[i] + '1';
+        sudoku[y][x] = __builtin_ctz(stack[i]) + '1';
         i++;
       }
     }
@@ -203,9 +169,11 @@ private:
   bool backtrack_MVR(uint8_t idx)
   {
     if(idx >= BOARD_SIZE)
+    {
       return true;
+    }
 
-    auto loc = static_cast<uint8_t>(MRV_view[idx] - &MRV[0]);
+    auto loc = static_cast<uint8_t>(stack_view[idx] - &stack[0]);
 
     uint16_t candidates = stack[loc];
 
@@ -215,20 +183,20 @@ private:
       uint16_t SHF = 1U << s;
       candidates &= ~SHF; // Remove from local loop tracker
 
-      board[loc] = s;
-
       update_option_undo(loc, SHF);
 
-      // 2. Pivot & Recurse
-      if(check_scan_and_swap(idx + 1))
+      if(!check_scan_and_swap(idx + 1))
       {
-        if(backtrack_MVR(idx + 1))
-          return true;
+        goto backtrack;
+      }
+      if(backtrack_MVR(idx + 1))
+      {
+        return true;
       }
 
+    backtrack:
       undo_option(loc, SHF);
       std::memset(&undo[loc][0], false, PEERS_SIZE);
-      board[loc] = -1;
     }
     return false;
   }
@@ -240,7 +208,7 @@ private:
 
     for(auto i = beg; i < BOARD_SIZE; ++i)
     {
-      auto val = *MRV_view[i];
+      auto val = __builtin_popcount(*stack_view[i]);
 
       if(val == 0)
       {
@@ -255,9 +223,9 @@ private:
 
     if(best_it != beg)
     {
-      auto *tmp = MRV_view[best_it];
-      MRV_view[best_it] = MRV_view[beg];
-      MRV_view[beg] = tmp;
+      auto *tmp = stack_view[best_it];
+      stack_view[best_it] = stack_view[beg];
+      stack_view[beg] = tmp;
     }
 
     return true;
@@ -270,7 +238,6 @@ private:
       if(stack[j] & SHF)
       {
         stack[j] &= ~SHF;
-        MRV[j] = __builtin_popcount(stack[j]);
       }
     }
   }
@@ -283,7 +250,6 @@ private:
       if(stack[peers[j]] & SHF)
       {
         stack[peers[j]] &= ~SHF;
-        MRV[peers[j]] = __builtin_popcount(stack[peers[j]]);
         undo[i][j] = true;
       }
     }
@@ -297,7 +263,6 @@ private:
       if(undo[i][j])
       {
         stack[peers[j]] |= SHF;
-        MRV[peers[j]] = __builtin_popcount(stack[peers[j]]);
       }
     }
   }
