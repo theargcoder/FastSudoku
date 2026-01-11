@@ -65,6 +65,16 @@ private:
   const constexpr static auto PEERS_SIZE = 20;
   const constexpr static auto ROW_SIZE = 9;
 
+  constexpr static const int8_t ROW[BOARD_SIZE]
+      = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
+          4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+  constexpr static const int8_t COL[BOARD_SIZE]
+      = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4,
+          5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+  constexpr static const int8_t BOX[BOARD_SIZE]
+      = { 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 3, 3, 3, 4, 4,
+          4, 5, 5, 5, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8, 6, 6, 6, 7, 7, 7, 8, 8, 8, 6, 6, 6, 7, 7, 7, 8, 8, 8 };
+
 private:
   struct PreComputed
   {
@@ -118,13 +128,13 @@ private:
 
 private: // custom data container
   uint16_t stack[BOARD_SIZE];
-  uint8_t MRV[BOARD_SIZE];
+  uint16_t MRV[BOARD_SIZE];
 
 private: // holders
   int8_t board[BOARD_SIZE];
 
 private: // pointers to stack to suffle arround and sort
-  uint8_t *MRV_view[BOARD_SIZE];
+  uint16_t *MRV_view[BOARD_SIZE];
   bool undo[BOARD_SIZE][PEERS_SIZE];
 
 public:
@@ -147,12 +157,13 @@ public:
       if(board[i] >= 0)
       {
         uint16_t SHF = 1 << board[i];
+        uint16_t NSHF = ~SHF;
         stack[i] = SHF;
 
         MRV[i] = 1;
         hash += MRV[i];
 
-        update_option<false>(i, SHF);
+        update_option(i, SHF, NSHF);
       }
     }
     while(prevhash != hash)
@@ -166,7 +177,8 @@ public:
           board[i] = __builtin_ctz(stack[i]);
 
           uint16_t SHF = 1 << board[i];
-          update_option<false>(i, SHF);
+          uint16_t NSHF = ~SHF;
+          update_option(i, SHF, NSHF);
 
           stack[i] = SHF;
         }
@@ -184,9 +196,7 @@ public:
     ////
 
     auto low_bd = std::lower_bound(&MRV_view[0], &MRV_view[BOARD_SIZE], 2, [](const auto *d, auto e) { return *d < e; });
-    uint8_t st = std::distance(&MRV_view[0], low_bd);
-
-    std::memset(&undo[0], false, sizeof(undo));
+    uint32_t st = std::distance(&MRV_view[0], low_bd);
 
     backtrack_MVR(st);
 
@@ -202,13 +212,13 @@ public:
   }
 
 private:
-  bool backtrack_MVR(uint8_t idx)
+  bool backtrack_MVR(uint32_t idx)
   {
     if(idx >= BOARD_SIZE)
     {
       return true;
     }
-    auto loc = static_cast<uint8_t>(MRV_view[idx] - &MRV[0]);
+    auto loc = static_cast<uint16_t>(MRV_view[idx] - &MRV[0]);
 
     while(*MRV_view[idx])
     {
@@ -216,23 +226,24 @@ private:
       int8_t s = __builtin_ctz(stack[loc]);
 
       uint16_t SHF = 1U << s;
+      uint16_t NSHF = ~SHF;
 
-      stack[loc] &= ~SHF;
+      stack[loc] &= NSHF;
 
       board[loc] = s;
 
+      /*
       uint16_t stack_copy[BOARD_SIZE];
-      uint8_t MRV_copy[BOARD_SIZE];
-      std::memcpy(&stack_copy, &stack, sizeof(stack));
-      std::memcpy(&MRV_copy, &MRV, sizeof(MRV));
+      uint16_t MRV_copy[BOARD_SIZE];
+      memcpy(&stack_copy, &stack, sizeof(stack));
+      memcpy(&MRV_copy, &MRV, sizeof(MRV));
+      */
 
-      update_option<true>(loc, SHF);
+      update_option(loc, SHF, NSHF);
 
       if(!check_scan_and_swap(idx + 1))
       {
-        undo_option(loc, SHF);
-        continue;
-        // goto backtrack;
+        goto backtrack;
       }
 
       if(backtrack_MVR(idx + 1))
@@ -240,247 +251,24 @@ private:
         return true;
       }
 
-      // backtrack:
-      //  undo_option(loc, SHF);
+    backtrack:
+      board[loc] = -1;
       /// same as the prev memcpy
-      std::memmove(&stack, &stack_copy, sizeof(stack));
-      std::memmove(&MRV, &MRV_copy, sizeof(MRV));
+      /*
+      memcpy(&stack, &stack_copy, sizeof(stack));
+      memcpy(&MRV, &MRV_copy, sizeof(MRV));
+      */
     }
     return false;
   }
 
-  [[nodiscard]] bool check_scan_and_swap(uint8_t beg)
-  {
-    auto best_it = beg;
-    auto min_mvr = UINT16_MAX;
-
-    for(auto i = beg; i < BOARD_SIZE; ++i)
-    {
-      auto val = *MRV_view[i];
-
-      if(val == 0)
-      {
-        return false; // dead end
-      }
-      else if(val < min_mvr)
-      {
-        min_mvr = val;
-        best_it = i;
-      }
-    }
-
-    if(best_it != beg)
-    {
-      auto *tmp = MRV_view[best_it];
-      MRV_view[best_it] = MRV_view[beg];
-      MRV_view[beg] = tmp;
-    }
-
-    return true;
-  }
-
-  template <bool UNDO>
-  void update_option(const uint8_t i, const uint16_t SHF)
-  {
-    if constexpr(UNDO)
-    {
-      int k = 0;
-      for(const auto &j : pre_computed.PEERS[i])
-      {
-        if(stack[j] & SHF)
-        {
-          stack[j] &= ~SHF;
-          MRV[j] = __builtin_popcount(stack[j]);
-          undo[i][k] = true;
-        }
-        ++k;
-      }
-    }
-    else
-    {
-      for(const auto &j : pre_computed.PEERS[i])
-      {
-        if(stack[j] & SHF)
-        {
-          stack[j] &= ~SHF;
-          MRV[j] = __builtin_popcount(stack[j]);
-        }
-      }
-    }
-  }
-
-  void undo_option(const uint8_t i, const uint16_t SHF)
-  {
-    int k = 0;
-    for(const auto &j : pre_computed.PEERS[i])
-    {
-      if(undo[i][k])
-      {
-        stack[j] |= SHF;
-        MRV[j] = __builtin_popcount(stack[j]);
-        undo[i][k] = false;
-      }
-      k++;
-    }
-  }
-};
-
-/*************************************************************
-*************************************************************
-*************************************************************
-******   ITERATIVE SOLUTION, NO FUNCTION RECURSION   *******
-*************************************************************
-*************************************************************
-*************************************************************/
-
-/*
-class Solution
-{
+  /*
 private:
-  const constexpr static auto BOARD_SIZE = 81;
-  const constexpr static auto PEERS_SIZE = 20;
-  const constexpr static auto ROW_SIZE = 9;
-
-private:
-  struct PreComputed
-  {
-  public:
-    uint8_t PEERS[BOARD_SIZE][PEERS_SIZE];
-
-    consteval PreComputed()
-    {
-      init_peers();
-    }
-
-  private:
-    // Consteval ensures this function is executed ONLY at compile time
-    consteval void init_peers()
-    {
-      for(int i = 0; i < BOARD_SIZE; ++i)
-      {
-        int count = 0;
-        int r = i / ROW_SIZE;
-        int c = i % ROW_SIZE;
-        int br = (r / 3) * 3; // Box row start
-        int bc = (c / 3) * 3; // Box column start
-
-        for(int x = 0; x < BOARD_SIZE; ++x)
-        {
-          if(x == i)
-          {
-            continue;
-          }
-
-          int xr = x / ROW_SIZE;
-          int xc = x % ROW_SIZE;
-
-          // Check Row, Column, or 3x3 Box
-          bool sameRow = (r == xr);
-          bool sameCol = (c == xc);
-          bool sameBox = (xr >= br && xr < br + 3 && xc >= bc && xc < bc + 3);
-
-          if(sameRow || sameCol || sameBox)
-          {
-            // Safety check: count should never exceed 19 (indices 0-19)
-            PEERS[i][count++] = static_cast<uint8_t>(x);
-          }
-        }
-      }
-    }
-  };
-
-private:
-  PreComputed pre_computed{};
-
-private: // custom data container
-  uint16_t stack[BOARD_SIZE];
-  uint8_t MRV[BOARD_SIZE];
-
-private: // holders
-  int8_t board[BOARD_SIZE];
-
-private: // pointers to stack to suffle arround and sort
-  uint8_t *MRV_view[BOARD_SIZE];
-
-public:
-  void solveSudoku(std::vector<std::vector<char>> &sudoku)
-  {
-    long prevhash = 0, hash = 0;
-    int i = 0;
-    for(int y = 0; y < ROW_SIZE; ++y)
-    {
-      for(int x = 0; x < ROW_SIZE; ++x)
-      {
-        board[i] = sudoku[y][x] - '1';
-        stack[i] = 0b0000000111111111;
-        MRV[i] = ROW_SIZE;
-        i++;
-      }
-    }
-    for(i = 0; i < BOARD_SIZE; ++i)
-    {
-      if(board[i] >= 0)
-      {
-        uint16_t SHF = 1 << board[i];
-        stack[i] = SHF;
-
-        MRV[i] = 1;
-        hash += MRV[i];
-
-        update_option(i, SHF);
-      }
-    }
-    while(prevhash != hash)
-    {
-      prevhash = hash;
-      hash = 0;
-      for(i = 0; i < BOARD_SIZE; ++i)
-      {
-        if(MRV[i] == 1)
-        {
-          board[i] = __builtin_ctz(stack[i]);
-
-          uint16_t SHF = 1 << board[i];
-          update_option(i, SHF);
-
-          stack[i] = SHF;
-        }
-        hash += MRV[i];
-      }
-    }
-    for(i = 0; i < BOARD_SIZE; ++i)
-    {
-      MRV[i] = __builtin_popcount(stack[i]);
-      MRV_view[i] = &MRV[i];
-    }
-
-    //// THIS TAKES FUCKING 8.84% of CPU TIME WTF
-    std::sort(&MRV_view[0], &MRV_view[BOARD_SIZE], [](const auto *a, const auto *b) { return *a < *b; });
-    ////
-
-    auto low_bd = std::lower_bound(&MRV_view[0], &MRV_view[BOARD_SIZE], 2, [](const auto *d, auto e) { return *d < e; });
-    uint8_t st = std::distance(&MRV_view[0], low_bd);
-
-    backtrack_MVR(st);
-
-    i = 0;
-    for(int y = 0; y < ROW_SIZE; ++y)
-    {
-      for(int x = 0; x < ROW_SIZE; ++x)
-      {
-        sudoku[y][x] = board[i] + '1';
-        i++;
-      }
-    }
-  }
-
-private:
-  struct __attribute__((packed)) Frame
+  struct Frame
   {
     uint16_t stack_state[BOARD_SIZE]; // snapshot of stack before any choice at this depth
     uint8_t mrv_state[BOARD_SIZE];    // snapshot of MRV before any choice at this depth
   };
-
   bool backtrack_MVR(uint idx)
   {
     Frame frames[BOARD_SIZE];
@@ -498,8 +286,8 @@ private:
 
       if(!started[idx])
       {
-        std::memcpy(frames[idx].stack_state, stack, sizeof(stack));
-        std::memcpy(frames[idx].mrv_state, MRV, sizeof(MRV));
+        memcpy(frames[idx].stack_state, stack, sizeof(stack));
+        memcpy(frames[idx].mrv_state, MRV, sizeof(MRV));
         started[idx] = true;
       }
 
@@ -519,14 +307,14 @@ private:
 
         board[loc] = static_cast<int8_t>(s);
 
-        update_option(loc, SHF);
+        update_option(loc, SHF, NSHF);
 
         if(!check_scan_and_swap(idx + 1))
         {
           board[loc] = -1;
 
-          std::memmove(stack, frames[idx].stack_state, sizeof(stack));
-          std::memmove(MRV, frames[idx].mrv_state, sizeof(MRV));
+          memcpy(stack, frames[idx].stack_state, sizeof(stack));
+          memcpy(MRV, frames[idx].mrv_state, sizeof(MRV));
 
           continue;
         }
@@ -555,11 +343,12 @@ private:
 
       board[loc] = -1;
 
-      std::memmove(stack, frames[idx].stack_state, sizeof(stack));
-      std::memmove(MRV, frames[idx].mrv_state, sizeof(MRV));
+      memcpy(stack, frames[idx].stack_state, sizeof(stack));
+      memcpy(MRV, frames[idx].mrv_state, sizeof(MRV));
 
     } // while (true)
   }
+  */
 
   [[nodiscard]] bool check_scan_and_swap(uint8_t beg)
   {
@@ -574,7 +363,8 @@ private:
       {
         return false; // dead end
       }
-      else if(val < min_mvr)
+
+      if(val < min_mvr)
       {
         min_mvr = val;
         best_it = i;
@@ -591,16 +381,31 @@ private:
     return true;
   }
 
-  void update_option(const uint8_t i, const uint16_t SHF)
+  void update_option(const uint8_t i, const uint16_t SHF, const uint16_t NSHF)
   {
+    int k = 0;
     for(const auto &j : pre_computed.PEERS[i])
     {
       if(stack[j] & SHF)
       {
-        stack[j] &= ~SHF;
-        MRV[j] = __builtin_popcount(stack[j]);
+        stack[j] &= NSHF;
+        --MRV[j];
+        undo[i][k] = true;
       }
     }
   }
+
+  void backtrack_option(const uint8_t i, const uint16_t SHF)
+  {
+    int k = 0;
+    for(const auto &j : pre_computed.PEERS[i])
+    {
+      if(undo[i][k])
+      {
+        stack[j] &= NSHF;
+        --MRV[j];
+      }
+      k++;
+    }
+  }
 };
-*/
