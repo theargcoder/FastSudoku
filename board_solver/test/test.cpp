@@ -1,5 +1,6 @@
 #include "../include/solver.h"
 #include <chrono>
+#include <cstring>
 #include <iostream>
 
 inline bool isValidSudokuwithempies(std::vector<std::vector<char>> &board)
