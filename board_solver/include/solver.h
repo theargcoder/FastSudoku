@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cassert>
+#include <climits>
 #include <cstdint>
 #include <cstring>
 #include <iterator>
@@ -39,7 +40,8 @@ private:
   const constexpr static uint8_t BOARD_SIZE = 81;
   const constexpr static uint8_t PEERS_SIZE = 20;
   const constexpr static uint8_t ROW_SIZE = 9;
-  const constexpr static uint16_t ALL_BITS_ON = 0b0000000111111111;
+  const constexpr static uint32_t ALL_BITS_ON = 0b0000'0000'0000'0000'0000'0001'1111'1111;
+  const constexpr static uint32_t SHF_ST = 0b0000'0000'0000'0000'0000'1000'0000'0000;
 
 private:
   struct PreComputed
@@ -93,29 +95,26 @@ private:
   PreComputed pre_computed{};
 
 private: // custom data container
-  uint16_t stack[BOARD_SIZE];
+  uint32_t stack[BOARD_SIZE];
 
 private: // pointers to stack to suffle arround and sort
-  uint16_t *stack_view[BOARD_SIZE];
-  bool undo[BOARD_SIZE][PEERS_SIZE];
+  uint32_t *stack_view[BOARD_SIZE];
 
 public:
   void solveSudoku(std::vector<std::vector<char>> &sudoku)
   {
-    std::memset(stack, ALL_BITS_ON, sizeof(stack));
-    std::memset(&undo[0], false, sizeof(undo));
+    std::fill(&stack[0], &stack[BOARD_SIZE], ALL_BITS_ON);
 
-    int prevhash = 0, hash = 0;
-    uint8_t i = 0;
-    int8_t ct;
-    for(uint8_t y = 0; y < ROW_SIZE; ++y)
+    uint32_t i = 0;
+    uint32_t ct;
+    for(uint32_t y = 0; y < ROW_SIZE; ++y)
     {
-      for(uint8_t x = 0; x < ROW_SIZE; ++x)
+      for(uint32_t x = 0; x < ROW_SIZE; ++x)
       {
         ct = sudoku[y][x] - '1';
         if(ct >= 0 && ct < ROW_SIZE)
         {
-          const uint16_t SHF = 1 << ct;
+          const uint32_t SHF = 1U << ct;
           stack[i] = SHF;
 
           update_option(i, SHF);
@@ -126,36 +125,14 @@ public:
       }
     }
 
-    while(prevhash != hash)
-    {
-      prevhash = hash;
-      hash = 0;
-      for(i = 0; i < BOARD_SIZE; ++i)
-      {
-        const auto mrv = __builtin_popcount(stack[i]);
-        if(mrv == 1)
-        {
-          update_option(i, stack[i]);
-        }
-        hash += mrv;
-      }
-    }
-
-    std::sort(&stack_view[0], &stack_view[BOARD_SIZE], [](const auto *a, const auto *b) { return __builtin_popcount(*a) < __builtin_popcount(*b); });
-
-    auto low_bd
-        = std::lower_bound(&stack_view[0], &stack_view[BOARD_SIZE], 2, [](const auto *c, uint8_t value) { return __builtin_popcount(*c) < value; });
-
-    uint8_t st = std::distance(&stack_view[0], low_bd);
-
-    backtrack_MVR(st);
+    backtrack_MVR(0);
 
     i = 0;
-    for(uint8_t y = 0; y < ROW_SIZE; ++y)
+    for(uint32_t y = 0; y < ROW_SIZE; ++y)
     {
-      for(uint8_t x = 0; x < ROW_SIZE; ++x)
+      for(uint32_t x = 0; x < ROW_SIZE; ++x)
       {
-        sudoku[y][x] = __builtin_ctz(stack[i]) + '1';
+        sudoku[y][x] = std::countr_zero(stack[i]) + '1';
         i++;
       }
     }
@@ -169,17 +146,18 @@ private:
       return true;
     }
 
-    auto loc = static_cast<uint8_t>(stack_view[idx] - &stack[0]);
+    const uint32_t loc = static_cast<uint8_t>(stack_view[idx] - &stack[0]);
 
-    uint16_t candidates = stack[stack_view[idx] - &stack[0]];
+    uint16_t candidates = stack[loc] & ALL_BITS_ON;
+    uint32_t s, SHF;
 
     while(candidates)
     {
-      int8_t s = __builtin_ctz(candidates);
-      uint16_t SHF = 1U << s;
+      s = std::countr_zero(candidates);
+      SHF = 1U << s;
       candidates &= ~SHF; // Remove from local loop tracker
 
-      update_option_undo(stack_view[idx] - &stack[0], SHF);
+      update_option_undo(loc, SHF);
 
       if(!check_scan_and_swap(idx + 1))
       {
@@ -191,8 +169,8 @@ private:
       }
 
     backtrack:
-      undo_option(stack_view[idx] - &stack[0], SHF);
-      std::memset(&undo[stack_view[idx] - &stack[0]][0], false, PEERS_SIZE);
+      undo_option(loc, SHF);
+      stack[loc] &= ALL_BITS_ON;
     }
     return false;
   }
@@ -200,11 +178,11 @@ private:
   [[nodiscard]] bool check_scan_and_swap(uint8_t beg)
   {
     auto best_it = beg;
-    auto min_mvr = UINT16_MAX;
+    auto min_mvr = INT_MAX;
 
     for(auto i = beg; i < BOARD_SIZE; ++i)
     {
-      auto val = __builtin_popcount(*stack_view[i]);
+      auto val = std::popcount(*stack_view[i] & ALL_BITS_ON);
 
       if(val == 0)
       {
@@ -227,7 +205,7 @@ private:
     return true;
   }
 
-  void update_option(const uint8_t i, const uint16_t SHF)
+  void update_option(const uint8_t i, const uint32_t SHF)
   {
     for(const auto &j : pre_computed.PEERS[i])
     {
@@ -238,15 +216,15 @@ private:
     }
   }
 
-  void update_option_undo(const uint8_t i, const uint16_t SHF)
+  void update_option_undo(const uint8_t i, const uint32_t SHF)
   {
     const auto &peers = pre_computed.PEERS[i];
-    for(int j = 0; j < PEERS_SIZE; j++)
+    for(uint32_t j = 0, K = SHF_ST; j < PEERS_SIZE; j++, K <<= 1U)
     {
       if(stack[peers[j]] & SHF)
       {
         stack[peers[j]] &= ~SHF;
-        undo[i][j] = true;
+        stack[i] |= K;
       }
     }
   }
@@ -254,9 +232,9 @@ private:
   void undo_option(const uint8_t i, const uint16_t SHF)
   {
     const auto &peers = pre_computed.PEERS[i];
-    for(int j = 0; j < PEERS_SIZE; j++)
+    for(uint32_t j = 0, K = SHF_ST; j < PEERS_SIZE; j++, K <<= 1U)
     {
-      if(undo[i][j])
+      if(stack[i] & K)
       {
         stack[peers[j]] |= SHF;
       }
@@ -372,7 +350,7 @@ public:
       {
         if(MRV[i] == 1)
         {
-          board[i] = __builtin_ctz(stack[i]);
+          board[i] = std::countr_zero(stack[i]);
 
           uint16_t SHF = 1 << board[i];
           update_option(i, SHF);
@@ -384,7 +362,7 @@ public:
     }
     for(i = 0; i < BOARD_SIZE; ++i)
     {
-      MRV[i] = __builtin_popcount(stack[i]);
+      MRV[i] = std::popcount(stack[i]);
       MRV_view[i] = &MRV[i];
     }
 
@@ -442,7 +420,7 @@ private:
       while(frames[idx].mrv_state[loc])
       {
         frames[idx].mrv_state[loc]--;
-        const auto s = static_cast<uint8_t>(__builtin_ctz(frames[idx].stack_state[loc]));
+        const auto s = static_cast<uint8_t>(std::countr_zero(frames[idx].stack_state[loc]));
 
         const auto SHF = static_cast<uint16_t>(1U << s);
         const auto NSHF = static_cast<uint16_t>(~SHF);
@@ -532,7 +510,7 @@ private:
       if(stack[j] & SHF)
       {
         stack[j] &= ~SHF;
-        MRV[j] = __builtin_popcount(stack[j]);
+        MRV[j] = std::popcount(stack[j]);
       }
     }
   }

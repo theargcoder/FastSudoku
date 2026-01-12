@@ -119,7 +119,7 @@ inline bool isValidSudoku(std::vector<std::vector<char>> &board)
     for(i = 0; i < 9; i++)
     {
       pp = board[j][i];
-      if(pp == '.')
+      if(pp < '1' || pp > '9')
         return false;
 
       pp -= '.';
@@ -531,7 +531,8 @@ void test_commulative(bool prints)
     auto start = std::chrono::high_resolution_clock::now();
     solver.solveSudoku(boards_gtp[i]);
     auto stop = std::chrono::high_resolution_clock::now();
-    total_duration += std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+    total_duration += duration;
     if(prints)
     {
       std::cout << "OUTPUT Sudoku # " << i << " \n";
@@ -551,7 +552,7 @@ void test_commulative(bool prints)
     }
     if(isValidSudoku(boards_gtp[i]))
     {
-      std::cout << "\033[1;32m PROPERLY SOLVED THE BOARD # " << i << "\033[0m" << '\n';
+      std::cout << "\033[1;32m PROPERLY SOLVED THE BOARD # " << i << "\n\t IT took = " << duration << " μs\n" << "\033[0m";
     }
     else
     {
@@ -681,7 +682,7 @@ int main()
 {
   // test_individual(7, true);
   test_n_times_with_average_exec_time(7, false);
-  // test_n_times_no_halt(10, false);
+  //  test_n_times_no_halt(10, false);
   std::cout << "\033[1;31m "
                "\n\n[----------------------------------------------------------"
                "--------------------------"
