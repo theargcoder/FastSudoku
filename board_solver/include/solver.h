@@ -316,7 +316,7 @@ public:
     std::fill(&stack[0], &stack[BOARD_SIZE], ALL_BITS_ON);
 
     uint32_t i = 0;
-    uint32_t ct;
+    uint8_t ct;
     for(uint32_t y = 0; y < ROW_SIZE; ++y)
     {
       for(uint32_t x = 0; x < ROW_SIZE; ++x)
@@ -372,7 +372,7 @@ private:
         const uint8_t s = std::countr_zero(cand);
         const uint16_t SHF = static_cast<uint16_t>(1U << s);
 
-        candidates[idx] = (cand & ~SHF) | (static_cast<uint16_t>(s) << S_OFFSET);
+        candidates[idx] = (cand ^ SHF) | (static_cast<uint16_t>(s) << S_OFFSET);
 
         update_option_undo(loc, SHF);
 
@@ -437,31 +437,29 @@ private:
     return true;
   }
 
-  void update_option(const uint8_t i, const uint32_t SHF)
+  void update_option(const uint8_t &i, const uint32_t &SHF)
   {
     for(const auto &j : pre_computed.PEERS[i])
     {
-      if(stack[j] & SHF)
-      {
-        stack[j] &= ~SHF;
-      }
+      // if(stack[j] & SHF) // no need since we wont undo that early
+      stack[j] &= ~SHF;
     }
   }
 
-  void update_option_undo(const uint8_t i, const uint32_t SHF)
+  void update_option_undo(const uint8_t &i, const uint32_t &SHF)
   {
     const auto &peers = pre_computed.PEERS[i];
     for(uint32_t j = 0, K = SHF_ST; j < PEERS_SIZE; j++, K <<= 1U)
     {
       if(stack[peers[j]] & SHF)
       {
-        stack[peers[j]] &= ~SHF;
+        stack[peers[j]] ^= SHF;
         stack[i] |= K;
       }
     }
   }
 
-  void undo_option(const uint8_t i, const uint16_t SHF)
+  void undo_option(const uint8_t &i, const uint16_t &SHF)
   {
     const auto &peers = pre_computed.PEERS[i];
     for(uint32_t j = 0, K = SHF_ST; j < PEERS_SIZE; j++, K <<= 1U)
