@@ -253,8 +253,13 @@ private:
   const constexpr static uint8_t BOARD_SIZE = 81;
   const constexpr static uint8_t PEERS_SIZE = 20;
   const constexpr static uint8_t ROW_SIZE = 9;
+
   const constexpr static uint32_t ALL_BITS_ON = 0b0000'0000'0000'0000'0000'0001'1111'1111;
   const constexpr static uint32_t SHF_ST = 0b0000'0000'0000'0000'0000'1000'0000'0000;
+
+  const constexpr static uint16_t ONLY_S = 0b1111'1000'0000'0000;
+  const constexpr static uint16_t ONLY_CANDIDATES = 0b0000'0001'1111'1111;
+  const constexpr static uint16_t S_OFFSET = 11;
 
 private:
   struct PreComputed
@@ -342,20 +347,13 @@ public:
   }
 
 private:
-  struct __attribute((packed)) Frame
-  {
-    uint16_t candidates;
-    uint8_t s;
-  };
-
   bool backtrack_MVR(uint8_t idx)
   {
-    Frame frames[BOARD_SIZE];
+    uint16_t candidates[BOARD_SIZE];
 
     uint8_t loc = static_cast<uint8_t>(stack_view[idx] - &stack[0]);
 
-    frames[idx].candidates = stack[loc] & ALL_BITS_ON;
-    frames[idx].s = 0;
+    candidates[idx] = stack[loc] & ALL_BITS_ON;
 
     while(true)
     {
@@ -366,11 +364,15 @@ private:
 
       loc = static_cast<uint8_t>(stack_view[idx] - &stack[0]);
 
-      if(frames[idx].candidates)
+      // extract candidate-only bits
+      uint16_t cand = candidates[idx] & ONLY_CANDIDATES;
+
+      if(cand)
       {
-        frames[idx].s = std::countr_zero(frames[idx].candidates);
-        const uint16_t SHF = static_cast<uint16_t>(1U << frames[idx].s);
-        frames[idx].candidates &= ~SHF;
+        const uint8_t s = std::countr_zero(cand);
+        const uint16_t SHF = static_cast<uint16_t>(1U << s);
+
+        candidates[idx] = (cand & ~SHF) | (static_cast<uint16_t>(s) << S_OFFSET);
 
         update_option_undo(loc, SHF);
 
@@ -379,13 +381,13 @@ private:
           idx++;
 
           loc = static_cast<uint8_t>(stack_view[idx] - &stack[0]);
-          frames[idx].candidates = stack[loc] & ALL_BITS_ON;
+          candidates[idx] = stack[loc] & ALL_BITS_ON;
 
           continue;
         }
 
         // forward-check failed → undo immediately
-        undo_option(loc, 1U << frames[idx].s);
+        undo_option(loc, 1U << (candidates[idx] >> S_OFFSET));
         stack[loc] &= ALL_BITS_ON;
         continue;
       }
@@ -398,7 +400,7 @@ private:
       idx--;
       loc = static_cast<uint8_t>(stack_view[idx] - &stack[0]);
 
-      undo_option(loc, 1U << frames[idx].s);
+      undo_option(loc, 1U << (candidates[idx] >> S_OFFSET));
       stack[loc] &= ALL_BITS_ON;
     }
   }
