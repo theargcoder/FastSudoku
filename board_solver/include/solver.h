@@ -3,7 +3,6 @@
 #include <climits>
 #include <cstdint>
 #include <cstring>
-#include <unordered_map>
 #include <vector>
 
 //////////////////////////////////////////////////
@@ -261,21 +260,16 @@ private:
   const constexpr static uint16_t ONLY_CANDIDATES = 0b0000'0001'1111'1111;
   const constexpr static uint16_t S_OFFSET = 11;
 
-  // enconding is [ROW - COL - LMR direction - UMD direction]
-  const constexpr static uint16_t ONLY_ROW = 0b1111'0000'0000'0000; // bits 15..12
-  const constexpr static uint8_t ROW_OFFSET = 12;
-  const constexpr static uint16_t ONLY_COLUMN = 0b0000'1111'0000'0000; // bits 11..8
-  const constexpr static uint8_t COL_OFFSET = 8;
-
-  // low layout: [ UMD(2 bits) | LMR(2 bits) ]  -> bits 3..0
-  const constexpr static uint8_t ONLY_UP_DOWN_MASK = 0b0000'1100;    // bits 3..2
-  const constexpr static uint8_t ONLY_LEFT_RIGHT_MASK = 0b0000'0011; // bits 1..0
-  const constexpr static uint8_t UP_MID_DOWN_OFFSET = 2;
-
   struct PreComputedBits
   {
-  public:
-    mutable uint16_t BitPeers[BOARD_SIZE];
+    struct __attribute__((packed)) data
+    {
+      uint8_t row = 0;
+      uint8_t column = 0;
+      uint8_t box_peers[4] = { 0, 0, 0, 0 };
+    };
+
+    mutable data BitPeers[BOARD_SIZE];
 
     consteval PreComputedBits()
     {
@@ -287,23 +281,33 @@ private:
     {
       for(uint16_t i = 0; i < BOARD_SIZE; ++i)
       {
-        BitPeers[i] = 0;
+        data this_loc;
         const uint16_t row = i / ROW_SIZE;
         const uint16_t col = i % ROW_SIZE;
         const uint16_t box_row = (row / 3) * 3;
         const uint16_t box_col = (col / 3) * 3;
 
-        // store row and column nibble
-        BitPeers[i] |= (row << ROW_OFFSET);
-        BitPeers[i] |= (col << COL_OFFSET);
+        this_loc.row = static_cast<uint8_t>(row);
+        this_loc.column = static_cast<uint8_t>(col); // <-- FIXED
 
-        // position inside the 3x3 box: 0..2
-        const auto pos_row = static_cast<uint8_t>(row - box_row); // top=011, mid=101, bottom=110
-        const auto pos_col = static_cast<uint8_t>(col - box_col); // left=011, mid=101, right=110
+        const auto pos_row = static_cast<uint8_t>(row - box_row);
+        const auto pos_col = static_cast<uint8_t>(col - box_col);
 
-        // encode pos_row into bits 3..2 (UMD) and pos_col into bits 1..0 (LMR)
-        BitPeers[i] |= (static_cast<uint16_t>(pos_row) << UP_MID_DOWN_OFFSET); // UMD
-        BitPeers[i] |= static_cast<uint16_t>(pos_col);                         // LMR
+        const uint8_t others[3][2] = { { 1, 2 }, { 0, 2 }, { 0, 1 } };
+
+        uint8_t box_start = static_cast<uint8_t>(row * ROW_SIZE + col - pos_col - (ROW_SIZE * pos_row));
+
+        const uint8_t r0 = others[pos_row][0];
+        const uint8_t r1 = others[pos_row][1];
+        const uint8_t c0 = others[pos_col][0];
+        const uint8_t c1 = others[pos_col][1];
+
+        this_loc.box_peers[0] = static_cast<uint8_t>(box_start + r0 * ROW_SIZE + c0);
+        this_loc.box_peers[1] = static_cast<uint8_t>(box_start + r0 * ROW_SIZE + c1);
+        this_loc.box_peers[2] = static_cast<uint8_t>(box_start + r1 * ROW_SIZE + c0);
+        this_loc.box_peers[3] = static_cast<uint8_t>(box_start + r1 * ROW_SIZE + c1);
+
+        BitPeers[i] = this_loc; // <-- store it
       }
     }
   };
@@ -446,16 +450,12 @@ private:
 
   void update_option(const uint8_t &idx, const uint32_t &SHF)
   {
-    const uint8_t row = static_cast<uint8_t>((pre_computed_bits.BitPeers[idx] & ONLY_ROW) >> ROW_OFFSET);
-    const uint8_t col = static_cast<uint8_t>((pre_computed_bits.BitPeers[idx] & ONLY_COLUMN) >> COL_OFFSET);
-    const uint8_t cell = static_cast<uint8_t>(row * ROW_SIZE + col);
-
+    const uint8_t &row = pre_computed_bits.BitPeers[idx].row;
+    const uint8_t &col = pre_computed_bits.BitPeers[idx].column;
+    const auto &indices = pre_computed_bits.BitPeers[idx].box_peers;
     const uint8_t row_start = row * ROW_SIZE;
 
-    // extract position inside 3x3 box
-    // negative
-    const uint8_t up_mid_down = static_cast<uint8_t>((pre_computed_bits.BitPeers[idx] & ONLY_UP_DOWN_MASK) >> UP_MID_DOWN_OFFSET);
-    const uint8_t left_mid_right = static_cast<uint8_t>(pre_computed_bits.BitPeers[idx] & ONLY_LEFT_RIGHT_MASK);
+    const auto cell = static_cast<uint8_t>(row_start + col);
 
     // row peers (same row, all columns)
     for(uint8_t i = row_start; i < row_start + ROW_SIZE; ++i)
@@ -477,43 +477,20 @@ private:
       stack[i] ^= SHF;
     }
 
-    // For pos in {0,1,2}, gives the two other indices
-    const constexpr uint8_t others[3][2] = {
-      { 1, 2 }, // pos = 0
-      { 0, 2 }, // pos = 1
-      { 0, 1 }  // pos = 2
-    };
-
-    uint8_t box_start = cell - left_mid_right - (ROW_SIZE * up_mid_down);
-
-    const uint8_t r0 = others[up_mid_down][0];
-    const uint8_t r1 = others[up_mid_down][1];
-    const uint8_t c0 = others[left_mid_right][0];
-    const uint8_t c1 = others[left_mid_right][1];
-
-    const uint8_t b0 = box_start + r0 * ROW_SIZE + c0;
-    const uint8_t b1 = box_start + r0 * ROW_SIZE + c1;
-    const uint8_t b2 = box_start + r1 * ROW_SIZE + c0;
-    const uint8_t b3 = box_start + r1 * ROW_SIZE + c1;
-
-    stack[b0] ^= SHF;
-    stack[b1] ^= SHF;
-    stack[b2] ^= SHF;
-    stack[b3] ^= SHF;
+    for(uint8_t i = 0; i < 4; ++i)
+    {
+      stack[indices[i]] ^= SHF;
+    }
   }
 
   void update_option_undo(const uint8_t &idx, const uint32_t &SHF)
   {
-    const uint8_t row = static_cast<uint8_t>((pre_computed_bits.BitPeers[idx] & ONLY_ROW) >> ROW_OFFSET);
-    const uint8_t col = static_cast<uint8_t>((pre_computed_bits.BitPeers[idx] & ONLY_COLUMN) >> COL_OFFSET);
-    const uint8_t cell = static_cast<uint8_t>(row * ROW_SIZE + col);
-
+    const uint8_t &row = pre_computed_bits.BitPeers[idx].row;
+    const uint8_t &col = pre_computed_bits.BitPeers[idx].column;
+    const auto &indices = pre_computed_bits.BitPeers[idx].box_peers;
     const uint8_t row_start = row * ROW_SIZE;
 
-    // extract position inside 3x3 box
-    // negative
-    const uint8_t up_mid_down = static_cast<uint8_t>((pre_computed_bits.BitPeers[idx] & ONLY_UP_DOWN_MASK) >> UP_MID_DOWN_OFFSET);
-    const uint8_t left_mid_right = static_cast<uint8_t>(pre_computed_bits.BitPeers[idx] & ONLY_LEFT_RIGHT_MASK);
+    const auto cell = static_cast<uint8_t>(row_start + col);
 
     uint32_t K = SHIFT_START;
 
@@ -549,62 +526,24 @@ private:
       }
     }
 
-    // For pos in {0,1,2}, gives the two other indices
-    const constexpr uint8_t others[3][2] = {
-      { 1, 2 }, // pos = 0
-      { 0, 2 }, // pos = 1
-      { 0, 1 }  // pos = 2
-    };
-
-    uint8_t box_start = cell - left_mid_right - (ROW_SIZE * up_mid_down);
-
-    const uint8_t r0 = others[up_mid_down][0];
-    const uint8_t r1 = others[up_mid_down][1];
-    const uint8_t c0 = others[left_mid_right][0];
-    const uint8_t c1 = others[left_mid_right][1];
-
-    const uint8_t b0 = box_start + (r0 * ROW_SIZE) + c0;
-    const uint8_t b1 = box_start + (r0 * ROW_SIZE) + c1;
-    const uint8_t b2 = box_start + (r1 * ROW_SIZE) + c0;
-    const uint8_t b3 = box_start + (r1 * ROW_SIZE) + c1;
-
-    if(stack[b0] & SHF)
+    for(uint8_t i = 0; i < 4; ++i, K <<= 1U)
     {
-      stack[b0] ^= SHF;
-      stack[idx] |= K;
-    }
-    K <<= 1U;
-    if(stack[b1] & SHF)
-    {
-      stack[b1] ^= SHF;
-      stack[idx] |= K;
-    }
-    K <<= 1U;
-    if(stack[b2] & SHF)
-    {
-      stack[b2] ^= SHF;
-      stack[idx] |= K;
-    }
-    K <<= 1U;
-    if(stack[b3] & SHF)
-    {
-      stack[b3] ^= SHF;
-      stack[idx] |= K;
+      if(stack[indices[i]] & SHF)
+      {
+        stack[indices[i]] ^= SHF;
+        stack[idx] |= K;
+      }
     }
   }
 
   void undo_option(const uint8_t &idx, const uint16_t &SHF)
   {
-    const uint8_t row = static_cast<uint8_t>((pre_computed_bits.BitPeers[idx] & ONLY_ROW) >> ROW_OFFSET);
-    const uint8_t col = static_cast<uint8_t>((pre_computed_bits.BitPeers[idx] & ONLY_COLUMN) >> COL_OFFSET);
-    const uint8_t cell = static_cast<uint8_t>(row * ROW_SIZE + col);
-
+    const uint8_t &row = pre_computed_bits.BitPeers[idx].row;
+    const uint8_t &col = pre_computed_bits.BitPeers[idx].column;
+    const auto &indices = pre_computed_bits.BitPeers[idx].box_peers;
     const uint8_t row_start = row * ROW_SIZE;
 
-    // extract position inside 3x3 box
-    // negative
-    const uint8_t up_mid_down = static_cast<uint8_t>((pre_computed_bits.BitPeers[idx] & ONLY_UP_DOWN_MASK) >> UP_MID_DOWN_OFFSET);
-    const uint8_t left_mid_right = static_cast<uint8_t>(pre_computed_bits.BitPeers[idx] & ONLY_LEFT_RIGHT_MASK);
+    const auto cell = static_cast<uint8_t>(row_start + col);
 
     uint32_t K = SHIFT_START;
 
@@ -638,43 +577,12 @@ private:
       }
     }
 
-    // For pos in {0,1,2}, gives the two other indices
-    const constexpr uint8_t others[3][2] = {
-      { 1, 2 }, // pos = 0
-      { 0, 2 }, // pos = 1
-      { 0, 1 }  // pos = 2
-    };
-
-    uint8_t box_start = cell - left_mid_right - (ROW_SIZE * up_mid_down);
-
-    const uint8_t r0 = others[up_mid_down][0];
-    const uint8_t r1 = others[up_mid_down][1];
-    const uint8_t c0 = others[left_mid_right][0];
-    const uint8_t c1 = others[left_mid_right][1];
-
-    const uint8_t b0 = box_start + (r0 * ROW_SIZE) + c0;
-    const uint8_t b1 = box_start + (r0 * ROW_SIZE) + c1;
-    const uint8_t b2 = box_start + (r1 * ROW_SIZE) + c0;
-    const uint8_t b3 = box_start + (r1 * ROW_SIZE) + c1;
-
-    if(stack[idx] & K)
+    for(uint8_t i = 0; i < 4; ++i, K <<= 1U)
     {
-      stack[b0] |= SHF;
-    }
-    K <<= 1U;
-    if(stack[idx] & K)
-    {
-      stack[b1] |= SHF;
-    }
-    K <<= 1U;
-    if(stack[idx] & K)
-    {
-      stack[b2] |= SHF;
-    }
-    K <<= 1U;
-    if(stack[idx] & K)
-    {
-      stack[b3] |= SHF;
+      if(stack[idx] & K)
+      {
+        stack[indices[i]] |= SHF;
+      }
     }
   }
 };
