@@ -246,6 +246,32 @@ private:
 /////////////////////////////////////////////////////////
 ///// ITERATIVE SOLUTION, NO FUNCTION RECURSION     /////
 /////////////////////////////////////////////////////////
+///
+/// 24 μs is pretty decent
+/// it depends on the board, some are harder
+///
+/**********************************************
+ *                                            *
+ *  TESTED IN:                                *
+ *    Linux ARCHbtw 6.18.4-arch1-1 #1 SM      *
+ *    PREEMPT_DYNAMIC                         *
+ *    Fri, 09 Jan 2026 19:43:48 +0000         *
+ *     x86_64 GNU/Linux                       *
+ *  COMPILER:                                 *
+ *     g++ (GCC) 15.2.1 20260103              *
+ *                                            *
+ **********************************************
+
+     Executed 5 runs of 10,000
+     function calls on the same board.
+     Average execution time per call
+     ranged from:
+
+                        [24000 ns , 25499  ns]
+
+                        [24    μs , 25     μs]
+
+ ************************************************/
 
 class Solution
 {
@@ -265,7 +291,7 @@ private:
   struct PreComputed
   {
   public:
-    mutable uint8_t PEERS[BOARD_SIZE][PEERS_SIZE];
+    uint8_t PEERS[BOARD_SIZE][PEERS_SIZE];
 
     consteval PreComputed()
     {
@@ -273,7 +299,7 @@ private:
     }
 
   private:
-    consteval void init_peers() const
+    consteval void init_peers()
     {
       for(int i = 0; i < BOARD_SIZE; ++i)
       {
@@ -302,7 +328,7 @@ private:
   };
 
 private:
-  PreComputed pre_computed{};
+  alignas(8) const PreComputed pre_computed{};
 
 private: // custom data container
   uint32_t stack[BOARD_SIZE];
@@ -442,7 +468,7 @@ private:
     for(const auto &j : pre_computed.PEERS[i])
     {
       // if(stack[j] & SHF) // no need since we wont undo that early
-      stack[j] &= ~SHF;
+      stack[j] ^= SHF;
     }
   }
 
