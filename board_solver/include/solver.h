@@ -377,9 +377,7 @@ private:
   {
     uint16_t candidates[BOARD_SIZE];
 
-    auto *loc = stack_view[idx];
-
-    candidates[idx] = *loc & ALL_BITS_ON;
+    candidates[idx] = *stack_view[idx] & ALL_BITS_ON;
 
     while(true)
     {
@@ -388,10 +386,8 @@ private:
         return true;
       }
 
-      loc = stack_view[idx];
-
       // extract candidate-only bits
-      uint16_t cand = candidates[idx] & ONLY_CANDIDATES;
+      const uint16_t cand = candidates[idx] & ONLY_CANDIDATES;
 
       if(cand)
       {
@@ -400,21 +396,24 @@ private:
 
         candidates[idx] = (cand ^ SHF) | (static_cast<uint16_t>(s) << S_OFFSET);
 
-        update_option_undo(loc, SHF);
+        update_option_undo(stack_view[idx], SHF);
 
         if(check_scan_and_swap(idx + 1))
         {
           idx++;
+          if(idx >= BOARD_SIZE)
+          {
+            return true;
+          }
 
-          loc = stack_view[idx];
-          candidates[idx] = *loc & ALL_BITS_ON;
+          candidates[idx] = *stack_view[idx] & ALL_BITS_ON;
 
           continue;
         }
 
         // forward-check failed → undo immediately
-        undo_option(loc, 1U << (candidates[idx] >> S_OFFSET));
-        *loc &= ALL_BITS_ON;
+        undo_option(stack_view[idx], 1U << (candidates[idx] >> S_OFFSET));
+        *stack_view[idx] &= ALL_BITS_ON;
         continue;
       }
 
@@ -424,10 +423,9 @@ private:
       }
 
       idx--;
-      loc = stack_view[idx];
 
-      undo_option(loc, 1U << (candidates[idx] >> S_OFFSET));
-      *loc &= ALL_BITS_ON;
+      undo_option(stack_view[idx], 1U << (candidates[idx] >> S_OFFSET));
+      *stack_view[idx] &= ALL_BITS_ON;
     }
   }
 
@@ -439,7 +437,7 @@ private:
     for(auto i = beg; i < BOARD_SIZE; ++i)
     {
       // count remaining candidates among low bits
-      auto val = std::popcount(*stack_view[i] & ALL_BITS_ON);
+      const auto val = std::popcount(*stack_view[i] & ALL_BITS_ON);
 
       if(val == 0) [[unlikely]]
       {
@@ -453,12 +451,9 @@ private:
       }
     }
 
-    if(best_it != beg)
-    {
-      auto *tmp = stack_view[best_it];
-      stack_view[best_it] = stack_view[beg];
-      stack_view[beg] = tmp;
-    }
+    auto *tmp = stack_view[best_it];
+    stack_view[best_it] = stack_view[beg];
+    stack_view[beg] = tmp;
 
     return true;
   }
