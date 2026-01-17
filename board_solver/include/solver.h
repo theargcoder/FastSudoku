@@ -281,7 +281,7 @@ private:
   const constexpr static uint8_t ROW_SIZE = 9;
 
   const constexpr static uint32_t ALL_BITS_ON = 0b0000'0000'0000'0000'0000'0001'1111'1111;
-  const constexpr static uint32_t SHF_ST = 0b0000'0000'0000'0000'0000'1000'0000'0000;
+  const constexpr static uint32_t SHIFT_START = 0b0000'0000'0000'0000'0000'1000'0000'0000;
 
   const constexpr static uint16_t ONLY_S = 0b1111'1000'0000'0000;
   const constexpr static uint16_t ONLY_CANDIDATES = 0b0000'0001'1111'1111;
@@ -291,7 +291,7 @@ private:
   struct PreComputed
   {
   public:
-    uint8_t PEERS[BOARD_SIZE][PEERS_SIZE];
+    uint8_t PEERS[BOARD_SIZE][PEERS_SIZE]{};
 
     consteval PreComputed()
     {
@@ -312,7 +312,9 @@ private:
         for(int x = 0; x < BOARD_SIZE; ++x)
         {
           if(x == i)
+          {
             continue;
+          }
           int xr = x / ROW_SIZE;
           int xc = x % ROW_SIZE;
           bool sameRow = (r == xr);
@@ -373,7 +375,7 @@ public:
   }
 
 private:
-  bool backtrack_MVR(uint8_t idx)
+  void backtrack_MVR(uint8_t idx)
   {
     uint16_t candidates[BOARD_SIZE];
 
@@ -383,7 +385,7 @@ private:
     {
       if(idx >= BOARD_SIZE)
       {
-        return true;
+        break;
       }
 
       // extract candidate-only bits
@@ -403,7 +405,7 @@ private:
           idx++;
           if(idx >= BOARD_SIZE)
           {
-            return true;
+            break;
           }
 
           candidates[idx] = *stack_view[idx] & ALL_BITS_ON;
@@ -419,7 +421,7 @@ private:
 
       if(idx == 0)
       {
-        return false;
+        break;
       }
 
       idx--;
@@ -458,7 +460,7 @@ private:
     return true;
   }
 
-  void update_option(const uint8_t &i, const uint32_t &SHF)
+  void update_option(const uint8_t i, const uint32_t SHF)
   {
     for(const auto &j : pre_computed.PEERS[i])
     {
@@ -468,11 +470,10 @@ private:
   }
 
   void update_option_undo(uint32_t *stack_loc, const uint32_t &SHF)
-
   {
     const auto i = static_cast<uint8_t>(stack_loc - &stack[0]);
     const auto &peers = pre_computed.PEERS[i];
-    for(uint32_t j = 0, K = SHF_ST; j < PEERS_SIZE; j++, K <<= 1U)
+    for(uint32_t j = 0, K = SHIFT_START; j < PEERS_SIZE; j++, K <<= 1U)
     {
       if(stack[peers[j]] & SHF) // avoid this and use __popcount / ctz so no branch
       {
@@ -486,7 +487,7 @@ private:
   {
     const auto i = static_cast<uint8_t>(stack_loc - &stack[0]);
     const auto &peers = pre_computed.PEERS[i];
-    for(uint32_t j = 0, K = SHF_ST; j < PEERS_SIZE; j++, K <<= 1U)
+    for(uint32_t j = 0, K = SHIFT_START; j < PEERS_SIZE; j++, K <<= 1U)
     {
       if(*stack_loc & K)
       {
