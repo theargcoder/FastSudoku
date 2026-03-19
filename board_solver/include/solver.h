@@ -460,7 +460,7 @@ private:
     return true;
   }
 
-  void update_option(const uint8_t i, const uint32_t SHF)
+  inline void update_option(const uint8_t i, const uint32_t SHF)
   {
     for(const auto &j : pre_computed.PEERS[i])
     {
@@ -469,7 +469,7 @@ private:
     }
   }
 
-  void update_option_undo(uint32_t *stack_loc, const uint32_t &SHF)
+  inline void update_option_undo(uint32_t *stack_loc, const uint32_t SHF)
   {
     const auto i = static_cast<uint8_t>(stack_loc - &stack[0]);
     const auto &peers = pre_computed.PEERS[i];
@@ -483,7 +483,7 @@ private:
     }
   }
 
-  void undo_option(uint32_t *stack_loc, const uint16_t &SHF)
+  inline void undo_option(uint32_t *stack_loc, const uint16_t SHF)
   {
     const auto i = static_cast<uint8_t>(stack_loc - &stack[0]);
     const auto &peers = pre_computed.PEERS[i];

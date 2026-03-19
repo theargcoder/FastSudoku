@@ -52,5 +52,5 @@ add_library(FastSudoku INTERFACE)
 target_include_directories(FastSudoku INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Test executable
-add_executable(Test board_solver/test/test.cpp)
-target_link_libraries(Test PRIVATE FastSudoku)
+add_executable(test board_solver/test/test.cpp)
+target_link_libraries(test PRIVATE FastSudoku)
